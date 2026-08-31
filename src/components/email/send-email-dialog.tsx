@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState, type ReactElement } from "react";
-import { Loader2, Send } from "lucide-react";
+import { FileText, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import type { EmailTemplateOption } from "@/lib/queries/email-templates";
 import { sendEmailAction } from "@/lib/actions/activities";
 import { listEmailTemplateOptionsAction } from "@/lib/actions/email-templates";
 import { renderTemplate, type TemplateContext } from "@/lib/template-render";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,16 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-
-const NO_TEMPLATE = "none";
 
 /**
  * There's no outbound mail provider wired up — "sending" logs a completed
@@ -63,7 +55,7 @@ export function SendEmailDialog({
   const [to, setTo] = useState(defaultTo ?? "");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
-  const [templateId, setTemplateId] = useState(NO_TEMPLATE);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [templates, setTemplates] = useState<EmailTemplateOption[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -71,10 +63,8 @@ export function SendEmailDialog({
     listEmailTemplateOptionsAction().then(setTemplates);
   }, []);
 
-  function handleTemplateChange(value: string) {
-    setTemplateId(value);
-    const template = templates.find((t) => t.id === value);
-    if (!template) return;
+  function handlePickTemplate(template: EmailTemplateOption) {
+    setSelectedTemplateId(template.id);
     setSubject(renderTemplate(template.subject, templateContext ?? {}));
     setBody(renderTemplate(template.body, templateContext ?? {}));
   }
@@ -98,7 +88,7 @@ export function SendEmailDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={trigger} />
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Envoyer un email</DialogTitle>
           <DialogDescription>
@@ -106,61 +96,72 @@ export function SendEmailDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="send-email-to">À</Label>
-            <Input
-              id="send-email-to"
-              type="email"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              placeholder="contact@entreprise.fr"
-            />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_240px]">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="send-email-to">À</Label>
+              <Input
+                id="send-email-to"
+                type="email"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                placeholder="contact@entreprise.fr"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="send-email-subject">Objet</Label>
+              <Input
+                id="send-email-subject"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Suivi de votre demande"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="send-email-body">Message</Label>
+              <Textarea
+                id="send-email-body"
+                rows={10}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="Bonjour,"
+              />
+              {selectedTemplateId && (
+                <p className="text-xs text-muted-foreground">
+                  Pré-rempli depuis un template — modifiable avant l&apos;envoi.
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label>Template</Label>
-            <Select
-              value={templateId}
-              onValueChange={(value) => handleTemplateChange(value ?? NO_TEMPLATE)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_TEMPLATE}>Aucun (rédaction libre)</SelectItem>
-                {templates.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {templateId !== NO_TEMPLATE && (
-              <p className="text-xs text-muted-foreground">
-                Objet et message pré-remplis — modifiables avant l&apos;envoi.
-              </p>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="send-email-subject">Objet</Label>
-            <Input
-              id="send-email-subject"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="Suivi de votre demande"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="send-email-body">Message</Label>
-            <Textarea
-              id="send-email-body"
-              rows={6}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Bonjour,"
-            />
+            <Label className="text-xs text-muted-foreground">Templates disponibles</Label>
+            <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto rounded-lg border p-1.5 sm:max-h-none sm:flex-1">
+              {templates.length === 0 ? (
+                <p className="p-2 text-xs text-muted-foreground">Aucun template créé.</p>
+              ) : (
+                templates.map((template) => (
+                  <button
+                    key={template.id}
+                    type="button"
+                    onClick={() => handlePickTemplate(template)}
+                    className={cn(
+                      "flex items-start gap-2 rounded-md border p-2 text-left text-xs transition-colors hover:border-primary hover:bg-primary/5",
+                      selectedTemplateId === template.id && "border-primary bg-primary/5"
+                    )}
+                  >
+                    <FileText className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{template.title}</span>
+                      <span className="block truncate text-muted-foreground">
+                        {template.subject}
+                      </span>
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         </div>
 
