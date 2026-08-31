@@ -59,8 +59,8 @@ export function AppSidebar({ userEmail }: { userEmail?: string }) {
                 <Gauge className="size-4" />
               </div>
               <div className="flex flex-col gap-0.5 leading-none">
-                <span className="font-semibold">Pneus Industriels</span>
-                <span className="text-xs text-muted-foreground">CRM</span>
+                <span className="font-semibold text-sidebar-foreground">Pneus Industriels</span>
+                <span className="text-xs text-[#93c5fd]">CRM</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>

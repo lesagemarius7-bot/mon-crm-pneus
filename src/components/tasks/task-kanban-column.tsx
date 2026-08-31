@@ -22,7 +22,7 @@ export function TaskKanbanColumn({
   const { setNodeRef, isOver } = useDroppable({ id: bucket });
 
   return (
-    <div className="flex h-full w-72 shrink-0 flex-col rounded-lg border bg-muted/20">
+    <div className="flex h-full w-72 shrink-0 flex-col rounded-lg border border-t-2 border-t-primary bg-muted/20">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b p-3">
         <h3 className="truncate text-sm font-medium">{label}</h3>
         <Badge variant="secondary" className="shrink-0">

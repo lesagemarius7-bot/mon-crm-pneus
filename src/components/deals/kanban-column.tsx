@@ -26,7 +26,7 @@ export function KanbanColumn({
   const totalValue = deals.reduce((sum, deal) => sum + (deal.value ?? 0), 0);
 
   return (
-    <div className="flex h-full w-72 shrink-0 flex-col rounded-lg border bg-muted/20">
+    <div className="flex h-full w-72 shrink-0 flex-col rounded-lg border border-t-2 border-t-primary bg-muted/20">
       <div className="shrink-0 space-y-1 border-b p-3">
         <div className="flex items-center justify-between gap-2">
           <h3 className="truncate text-sm font-medium">{stage.name}</h3>
