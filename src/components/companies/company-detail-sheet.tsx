@@ -17,6 +17,7 @@ import type { CompanyDetail } from "@/lib/queries/companies";
 import { getCompanyDetailAction, updateCompanyDetailsAction } from "@/lib/actions/companies";
 import { deleteVehiclesAction } from "@/lib/actions/vehicles";
 import { buildTimeline } from "@/lib/activity-timeline";
+import type { TemplateContext } from "@/lib/template-render";
 import { useRealtimeSync, type RealtimeTable } from "@/hooks/use-realtime-sync";
 import {
   COMPANY_STATUS_BADGE,
@@ -31,6 +32,7 @@ import { QuickLogDialog } from "@/components/activity/quick-log-dialog";
 import { BulkActionsBar } from "@/components/bulk-actions-bar";
 import { CompanyContactsPanel } from "@/components/companies/company-contacts-panel";
 import { CompanyInfoPanel } from "@/components/companies/company-info-panel";
+import { EnrollInSequenceDialog } from "@/components/companies/enroll-in-sequence-dialog";
 import { SendEmailDialog } from "@/components/email/send-email-dialog";
 import { EntityTasksSection } from "@/components/tasks/entity-tasks-section";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
@@ -144,6 +146,23 @@ export function CompanyDetailSheet({
 
   const primaryContact = detail?.contacts.find((c) => c.email) ?? detail?.contacts[0] ?? null;
 
+  const templateContext: TemplateContext | undefined = detail
+    ? {
+        company: { name: detail.name, city: detail.city, type: COMPANY_TYPE_LABELS[detail.type] },
+        contact: primaryContact
+          ? {
+              firstName: primaryContact.firstName,
+              lastName: primaryContact.lastName,
+              email: primaryContact.email,
+              phone: primaryContact.phone,
+            }
+          : null,
+        deal: detail.deals[0]
+          ? { name: detail.deals[0].name, amount: detail.deals[0].value, stage: detail.deals[0].stage.name }
+          : null,
+      }
+    : undefined;
+
   return (
     <Sheet
       open={!!companyId}
@@ -195,6 +214,7 @@ export function CompanyDetailSheet({
                   companyId={detail.id}
                   contactId={primaryContact?.id}
                   defaultTo={primaryContact?.email}
+                  templateContext={templateContext}
                   onSent={bumpAndRefetch}
                   trigger={
                     <Button variant="outline" size="sm">
@@ -219,6 +239,11 @@ export function CompanyDetailSheet({
                       <MessageSquarePlus /> Note / Appel
                     </Button>
                   }
+                />
+                <EnrollInSequenceDialog
+                  contacts={detail.contacts}
+                  defaultContactId={primaryContact?.id}
+                  onEnrolled={bumpAndRefetch}
                 />
               </div>
             </div>

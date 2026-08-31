@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, type ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 
+import type { EmailTemplateOption } from "@/lib/queries/email-templates";
 import { sendEmailAction } from "@/lib/actions/activities";
+import { listEmailTemplateOptionsAction } from "@/lib/actions/email-templates";
+import { renderTemplate, type TemplateContext } from "@/lib/template-render";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,7 +20,16 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+
+const NO_TEMPLATE = "none";
 
 /**
  * There's no outbound mail provider wired up — "sending" logs a completed
@@ -29,6 +41,10 @@ export function SendEmailDialog({
   contactId,
   dealId,
   defaultTo,
+  /** Used to render {{contact.firstName}}/{{company.name}}/{{deal.amount}}
+   * when a template is picked — e.g. the open company + its primary
+   * contact + most recent deal. */
+  templateContext,
   trigger,
   onSent,
 }: {
@@ -36,6 +52,7 @@ export function SendEmailDialog({
   contactId?: string;
   dealId?: string;
   defaultTo?: string | null;
+  templateContext?: TemplateContext;
   trigger: ReactElement;
   onSent?: () => void;
 }) {
@@ -46,7 +63,21 @@ export function SendEmailDialog({
   const [to, setTo] = useState(defaultTo ?? "");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [templateId, setTemplateId] = useState(NO_TEMPLATE);
+  const [templates, setTemplates] = useState<EmailTemplateOption[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    listEmailTemplateOptionsAction().then(setTemplates);
+  }, []);
+
+  function handleTemplateChange(value: string) {
+    setTemplateId(value);
+    const template = templates.find((t) => t.id === value);
+    if (!template) return;
+    setSubject(renderTemplate(template.subject, templateContext ?? {}));
+    setBody(renderTemplate(template.body, templateContext ?? {}));
+  }
 
   async function handleSend() {
     setSubmitting(true);
@@ -86,6 +117,32 @@ export function SendEmailDialog({
               placeholder="contact@entreprise.fr"
             />
           </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Template</Label>
+            <Select
+              value={templateId}
+              onValueChange={(value) => handleTemplateChange(value ?? NO_TEMPLATE)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_TEMPLATE}>Aucun (rédaction libre)</SelectItem>
+                {templates.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {templateId !== NO_TEMPLATE && (
+              <p className="text-xs text-muted-foreground">
+                Objet et message pré-remplis — modifiables avant l&apos;envoi.
+              </p>
+            )}
+          </div>
+
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="send-email-subject">Objet</Label>
             <Input

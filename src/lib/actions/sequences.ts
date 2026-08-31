@@ -128,33 +128,62 @@ export async function deleteSequenceStepAction(id: string) {
 
 /**
  * Enrolls contacts in a sequence — used both by the single-contact "enroll"
- * dialog in the sequence detail view and the bulk "Ajouter à une séquence"
- * action from the Contacts table. Duplicates (contact already enrolled)
- * are silently skipped rather than failing the whole batch.
+ * dialog in the sequence detail view, the company drawer's "Inscrire à une
+ * séquence" action, and the bulk "Ajouter à une séquence" action from the
+ * Contacts table. Contacts already enrolled are silently skipped rather
+ * than failing the whole batch. Logs an Activity per newly-enrolled
+ * contact so it shows up in the company/contact timeline.
  */
 export async function enrollContactsInSequenceAction(sequenceId: string, contactIds: string[]) {
   const prisma = getPrisma();
-  const firstStep = await prisma.sequenceStep.findFirst({
-    where: { sequenceId },
-    orderBy: { order: "asc" },
-  });
+  const [sequence, firstStep, existingEnrollments, ownerId] = await Promise.all([
+    prisma.sequence.findUniqueOrThrow({ where: { id: sequenceId } }),
+    prisma.sequenceStep.findFirst({ where: { sequenceId }, orderBy: { order: "asc" } }),
+    prisma.sequenceEnrollment.findMany({
+      where: { sequenceId, contactId: { in: contactIds } },
+      select: { contactId: true },
+    }),
+    getCurrentUserId(),
+  ]);
   if (!firstStep) {
     throw new Error("Cette séquence n'a aucune étape — ajoute au moins une étape avant d'inscrire des contacts.");
   }
 
+  const alreadyEnrolledIds = new Set(existingEnrollments.map((e) => e.contactId));
+  const newContactIds = contactIds.filter((id) => !alreadyEnrolledIds.has(id));
+  if (newContactIds.length === 0) return 0;
+
   const nextStepDueAt = addDays(new Date(), firstStep.delayDays);
-  const result = await prisma.sequenceEnrollment.createMany({
-    data: contactIds.map((contactId) => ({
-      sequenceId,
-      contactId,
-      currentStepOrder: firstStep.order,
-      nextStepDueAt,
+  const [result, contacts] = await Promise.all([
+    prisma.sequenceEnrollment.createMany({
+      data: newContactIds.map((contactId) => ({
+        sequenceId,
+        contactId,
+        currentStepOrder: firstStep.order,
+        nextStepDueAt,
+      })),
+      skipDuplicates: true,
+    }),
+    prisma.contact.findMany({
+      where: { id: { in: newContactIds } },
+      select: { id: true, companyId: true },
+    }),
+  ]);
+
+  await prisma.activity.createMany({
+    data: contacts.map((contact) => ({
+      type: "AUTRE",
+      subject: `Inscrit à la séquence « ${sequence.name} »`,
+      contactId: contact.id,
+      companyId: contact.companyId,
+      ownerId: ownerId ?? undefined,
+      completedAt: new Date(),
     })),
-    skipDuplicates: true,
   });
 
   revalidatePath("/sequences");
   revalidatePath("/contacts");
+  revalidatePath("/companies");
   return result.count;
 }
 

@@ -9,12 +9,14 @@ export async function listEmailTemplates() {
 
 export type EmailTemplateRow = Awaited<ReturnType<typeof listEmailTemplates>>[number];
 
-/** Lightweight list for pickers (sequence steps, automations). */
+/** Lightweight list for pickers (sequence steps, automations, the
+ * "Envoyer un email" template selector). Includes body so callers can
+ * render {{variable}} substitution without a second fetch. */
 export async function listEmailTemplateOptions() {
   const prisma = getPrisma();
   return prisma.emailTemplate.findMany({
     orderBy: { title: "asc" },
-    select: { id: true, title: true, subject: true },
+    select: { id: true, title: true, subject: true, body: true },
   });
 }
 
