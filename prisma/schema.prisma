@@ -1,0 +1,403 @@
+// Schéma CRM Pneus Industriels
+// Modèle inspiré d'Attio : entités "cœur" fortement typées + attributs
+// personnalisables sans migration (colonne JSONB `customFields` sur chaque
+// entité, décrite par des `CustomFieldDefinition`).
+//
+// Connexion : POSTGRES_PRISMA_URL (pooled, via pgbouncer) pour les requêtes
+// applicatives, POSTGRES_URL_NON_POOLING (direct) pour les migrations.
+// Voir prisma7.config.ts pour le chargement des variables d'environnement.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Utilisateurs applicatifs
+// ---------------------------------------------------------------------------
+
+/// Miroir applicatif de `auth.users` (géré par Supabase Auth). Une ligne est
+/// créée automatiquement par un trigger Postgres (`handle_new_user`, voir
+/// migration SQL dédiée) à chaque inscription. Sert de cible pour les
+/// relations "propriétaire" / "auteur".
+model Profile {
+  id        String   @id @db.Uuid
+  email     String   @unique
+  fullName  String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ownedDeals    Deal[]     @relation("DealOwner")
+  authoredNotes Note[]     @relation("NoteAuthor")
+  activities    Activity[] @relation("ActivityOwner")
+  ownedTasks    Task[]     @relation("TaskOwner")
+
+  @@map("profiles")
+}
+
+// ---------------------------------------------------------------------------
+// Enums métier
+// ---------------------------------------------------------------------------
+
+enum CompanyType {
+  TRANSPORTEUR
+  BTP
+  AGRICOLE
+  MANUTENTION
+  GARAGE
+  AUTRE
+}
+
+enum CompanyStatus {
+  PROSPECT
+  CLIENT_ACTIF
+  CLIENT_INACTIF
+  PERDU
+}
+
+enum ContactRole {
+  CHEF_DE_PARC
+  ACHETEUR
+  GERANT
+  DIRECTEUR
+  MECANICIEN
+  AUTRE
+}
+
+enum TireType {
+  GENIE_CIVIL
+  POIDS_LOURDS
+  MANUTENTION
+  AGRICOLE
+}
+
+enum ActivityType {
+  APPEL
+  EMAIL
+  RENDEZ_VOUS
+  RELEVE_DE_PARC
+  TACHE
+  AUTRE
+}
+
+enum TaskType {
+  APPEL
+  RELANCE_EMAIL
+  RENDEZ_VOUS
+  DEMONSTRATION
+}
+
+enum TaskStatus {
+  A_FAIRE
+  TERMINEE
+}
+
+enum TaskPriority {
+  BASSE
+  NORMALE
+  HAUTE
+}
+
+enum CustomFieldEntity {
+  COMPANY
+  CONTACT
+  VEHICLE
+  DEAL
+}
+
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+  MULTI_SELECT
+  URL
+  EMAIL
+  PHONE
+  CURRENCY
+}
+
+// ---------------------------------------------------------------------------
+// Entreprises (Comptes)
+// ---------------------------------------------------------------------------
+
+model Company {
+  id               String        @id @default(uuid()) @db.Uuid
+  name             String
+  siret            String?       @unique
+  type             CompanyType   @default(AUTRE)
+  status           CompanyStatus @default(PROSPECT)
+  fleetSize        Int?
+  estimatedRevenue Decimal?      @db.Decimal(12, 2)
+  address          String?
+  city             String?
+  postalCode       String?
+  country          String        @default("France")
+  phone            String?
+  website          String?
+  linkedin         String?
+  /// Attributs personnalisés (clé = CustomFieldDefinition.key)
+  customFields     Json          @default("{}")
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  contacts   Contact[]
+  vehicles   Vehicle[]
+  deals      Deal[]
+  notes      Note[]
+  activities Activity[]
+  tasks      Task[]
+
+  @@index([status])
+  @@index([type])
+  @@map("companies")
+}
+
+// ---------------------------------------------------------------------------
+// Contacts
+// ---------------------------------------------------------------------------
+
+model Contact {
+  id           String      @id @default(uuid()) @db.Uuid
+  firstName    String
+  lastName     String
+  role         ContactRole @default(AUTRE)
+  email        String?
+  phone        String?
+  companyId    String?     @db.Uuid
+  customFields Json        @default("{}")
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  company    Company?   @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  deals      Deal[]
+  notes      Note[]
+  activities Activity[]
+  tasks      Task[]
+
+  @@index([companyId])
+  @@map("contacts")
+}
+
+// ---------------------------------------------------------------------------
+// Flotte & Équipements (spécifique pneus industriels)
+// ---------------------------------------------------------------------------
+
+model Vehicle {
+  id                     String    @id @default(uuid()) @db.Uuid
+  companyId              String    @db.Uuid
+  label                  String // ex: "Chargeuse Caterpillar 930", "Tracteur routier #12"
+  registrationPlate      String?
+  tireType               TireType  @default(POIDS_LOURDS)
+  tireDimension          String // ex: "315/80 R22.5", "29.5R25"
+  tireQuantity           Int? // nombre de pneus sur la machine
+  preferredBrand         String?
+  currentBrand           String?
+  renewalFrequencyMonths Int?
+  lastReplacementDate    DateTime?
+  customFields           Json      @default("{}")
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  company    Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  notes      Note[]
+  activities Activity[]
+
+  @@index([companyId])
+  @@index([tireType])
+  @@map("vehicles")
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline & Opportunités (Deals)
+// ---------------------------------------------------------------------------
+
+model PipelineStage {
+  id     String  @id @default(uuid()) @db.Uuid
+  name   String  @unique // Prospection, Diagnostic/Relevé de parc, Devis envoyé, Négociation, Gagné, Perdu
+  order  Int     @unique
+  isWon  Boolean @default(false)
+  isLost Boolean @default(false)
+
+  deals Deal[]
+
+  @@map("pipeline_stages")
+}
+
+model Deal {
+  id                String    @id @default(uuid()) @db.Uuid
+  name              String
+  companyId         String    @db.Uuid
+  contactId         String?   @db.Uuid
+  stageId           String    @db.Uuid
+  ownerId           String?   @db.Uuid
+  value             Decimal?  @db.Decimal(12, 2)
+  currency          String    @default("EUR")
+  proposedBrand     String?
+  proposedProducts  String?
+  expectedCloseDate DateTime?
+  closedAt          DateTime?
+  customFields      Json      @default("{}")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  company    Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact    Contact?      @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  stage      PipelineStage @relation(fields: [stageId], references: [id])
+  owner      Profile?      @relation("DealOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  notes      Note[]
+  activities Activity[]
+  tasks      Task[]
+
+  @@index([companyId])
+  @@index([stageId])
+  @@map("deals")
+}
+
+// ---------------------------------------------------------------------------
+// Notes & Activités (historique des interactions)
+// ---------------------------------------------------------------------------
+
+model Note {
+  id        String   @id @default(uuid()) @db.Uuid
+  content   String
+  authorId  String?  @db.Uuid
+  companyId String?  @db.Uuid
+  contactId String?  @db.Uuid
+  vehicleId String?  @db.Uuid
+  dealId    String?  @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author  Profile? @relation("NoteAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  deal    Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([contactId])
+  @@index([dealId])
+  @@map("notes")
+}
+
+model Activity {
+  id          String       @id @default(uuid()) @db.Uuid
+  type        ActivityType @default(AUTRE)
+  subject     String
+  description String?
+  dueAt       DateTime?
+  completedAt DateTime?
+  ownerId     String?      @db.Uuid
+  companyId   String?      @db.Uuid
+  contactId   String?      @db.Uuid
+  vehicleId   String?      @db.Uuid
+  dealId      String?      @db.Uuid
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  owner   Profile? @relation("ActivityOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  vehicle Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  deal    Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([dealId])
+  @@index([dueAt])
+  @@map("activities")
+}
+
+/// Tâches actionnables (façon HubSpot) : distinctes de `Activity`, qui est
+/// un historique de ce qui a déjà eu lieu. Une Task a une échéance et un
+/// statut À faire/Terminée ; elle n'apparaît dans le fil qu'une fois
+/// marquée terminée (voir `getActivitiesAction`, qui ne lit pas ce modèle).
+model Task {
+  id          String       @id @default(uuid()) @db.Uuid
+  subject     String
+  reason      String?
+  type        TaskType     @default(APPEL)
+  status      TaskStatus   @default(A_FAIRE)
+  priority    TaskPriority @default(NORMALE)
+  dueDate     DateTime?
+  completedAt DateTime?
+  ownerId     String?      @db.Uuid
+  companyId   String?      @db.Uuid
+  contactId   String?      @db.Uuid
+  dealId      String?      @db.Uuid
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  owner   Profile? @relation("TaskOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  deal    Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([contactId])
+  @@index([dealId])
+  @@index([dueDate])
+  @@index([status])
+  @@map("tasks")
+}
+
+// ---------------------------------------------------------------------------
+// Objets & champs personnalisés (Custom Objects / Attributes, façon Attio)
+// ---------------------------------------------------------------------------
+
+/// Définit un champ personnalisé ajoutable depuis l'UI sur une entité cœur.
+/// La valeur est stockée dans la colonne JSONB `customFields` de l'entité
+/// visée, sous la clé `key`. Permet d'ajouter/retirer des colonnes de vue
+/// sans migration de schéma.
+model CustomFieldDefinition {
+  id        String            @id @default(uuid()) @db.Uuid
+  entity    CustomFieldEntity
+  key       String // identifiant stable utilisé dans le JSON (slug)
+  label     String // libellé affiché dans l'UI
+  fieldType CustomFieldType
+  options   Json? // choix possibles pour SELECT / MULTI_SELECT
+  required  Boolean           @default(false)
+  isActive  Boolean           @default(true) // Masqué (false) = plus proposé dans l'UI, valeurs déjà saisies conservées
+  order     Int               @default(0)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@unique([entity, key])
+  @@map("custom_field_definitions")
+}
+
+/// Objets métier additionnels créés depuis l'UI (au-delà de Entreprises /
+/// Contacts / Flotte / Deals). Chaque enregistrement d'un objet custom est
+/// stocké dans `CustomObjectRecord`.
+model CustomObjectDefinition {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  slug      String   @unique
+  icon      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  records CustomObjectRecord[]
+
+  @@map("custom_object_definitions")
+}
+
+model CustomObjectRecord {
+  id         String   @id @default(uuid()) @db.Uuid
+  objectId   String   @db.Uuid
+  title      String
+  properties Json     @default("{}")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  object CustomObjectDefinition @relation(fields: [objectId], references: [id], onDelete: Cascade)
+
+  @@index([objectId])
+  @@map("custom_object_records")
+}
