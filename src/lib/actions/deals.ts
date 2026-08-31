@@ -8,7 +8,7 @@ import { runAutomationsForTrigger } from "@/lib/automation-engine";
 import { getCurrentUserId } from "@/lib/auth";
 import { notifyAssignment } from "@/lib/notifications";
 import { getPrisma } from "@/lib/prisma";
-import { getDealDetail, listPipelineStages } from "@/lib/queries/deals";
+import { getDealDetail, listDealsByStage, listPipelineStages } from "@/lib/queries/deals";
 
 export async function getDealDetailAction(id: string) {
   return getDealDetail(id);
@@ -16,6 +16,10 @@ export async function getDealDetailAction(id: string) {
 
 export async function listPipelineStagesAction() {
   return listPipelineStages();
+}
+
+export async function listDealsByStageAction(stageId: string) {
+  return listDealsByStage(stageId);
 }
 
 const createDealSchema = z.object({

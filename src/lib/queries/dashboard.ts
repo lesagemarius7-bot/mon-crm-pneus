@@ -168,3 +168,46 @@ export async function getDashboardData(assignedToId?: string) {
 export type DashboardData = Awaited<ReturnType<typeof getDashboardData>>;
 export type PriorityTask = DashboardData["priorityTasks"][number];
 export type RecentDeal = DashboardData["recentDeals"][number];
+
+function dayRange(dateKeyValue: string): { start: Date; end: Date } {
+  const start = startOfDay(new Date(`${dateKeyValue}T00:00:00`));
+  return { start, end: new Date(start.getTime() + DAY_MS) };
+}
+
+/** Emails sent on a given day ("YYYY-MM-DD") — powers the dashboard's
+ * activity-trend chart click-to-detail dialog for the "emails" series. */
+export async function listEmailActivitiesForDate(dateKeyValue: string) {
+  const prisma = getPrisma();
+  const { start, end } = dayRange(dateKeyValue);
+
+  return prisma.activity.findMany({
+    where: { type: "EMAIL", createdAt: { gte: start, lt: end } },
+    orderBy: { createdAt: "desc" },
+    include: {
+      company: { select: { id: true, name: true } },
+      deal: { select: { id: true } },
+      owner: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
+    },
+  });
+}
+
+export type EmailActivityForDate = Awaited<ReturnType<typeof listEmailActivitiesForDate>>[number];
+
+/** Tasks completed on a given day ("YYYY-MM-DD") — powers the dashboard's
+ * activity-trend chart click-to-detail dialog for the "tasks" series. */
+export async function listCompletedTasksForDate(dateKeyValue: string) {
+  const prisma = getPrisma();
+  const { start, end } = dayRange(dateKeyValue);
+
+  return prisma.task.findMany({
+    where: { status: "TERMINEE", completedAt: { gte: start, lt: end } },
+    orderBy: { completedAt: "desc" },
+    include: {
+      company: { select: { id: true, name: true } },
+      deal: { select: { id: true } },
+      owner: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
+    },
+  });
+}
+
+export type CompletedTaskForDate = Awaited<ReturnType<typeof listCompletedTasksForDate>>[number];

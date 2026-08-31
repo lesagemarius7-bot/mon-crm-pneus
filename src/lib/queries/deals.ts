@@ -26,6 +26,28 @@ export async function listDealsForBoard() {
   }));
 }
 
+/** Deals in a single pipeline stage, with just enough related data to
+ * power the dashboard's "click a stage bar" detail dialog. */
+export async function listDealsByStage(stageId: string) {
+  const prisma = getPrisma();
+  const deals = await prisma.deal.findMany({
+    where: { stageId },
+    orderBy: { updatedAt: "desc" },
+    include: {
+      company: { select: { id: true, name: true } },
+      owner: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
+      stage: { select: { name: true, isWon: true, isLost: true } },
+    },
+  });
+
+  return deals.map((deal) => ({
+    ...deal,
+    value: deal.value ? deal.value.toNumber() : null,
+  }));
+}
+
+export type DealsByStageRow = Awaited<ReturnType<typeof listDealsByStage>>[number];
+
 export async function listPipelineStages() {
   const prisma = getPrisma();
   return prisma.pipelineStage.findMany({ orderBy: { order: "asc" } });

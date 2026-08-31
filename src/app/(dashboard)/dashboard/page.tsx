@@ -91,6 +91,7 @@ export default async function DashboardPage({
             <CardContent>
               <PipelineByStageChart
                 data={data.dealsByStage.map(({ stage, total, count }) => ({
+                  stageId: stage.id,
                   name: stage.name,
                   total,
                   count,
