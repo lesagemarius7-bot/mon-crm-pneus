@@ -32,14 +32,15 @@ model Profile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  ownedDeals             Deal[]         @relation("DealOwner")
-  authoredNotes          Note[]         @relation("NoteAuthor")
-  activities             Activity[]     @relation("ActivityOwner")
-  ownedTasks             Task[]         @relation("TaskOwner")
-  assignedCompanies      Company[]      @relation("CompanyAssignee")
-  assignedContacts       Contact[]      @relation("ContactAssignee")
-  notifications          Notification[] @relation("NotificationRecipient")
-  triggeredNotifications Notification[] @relation("NotificationActor")
+  ownedDeals             Deal[]          @relation("DealOwner")
+  authoredNotes          Note[]          @relation("NoteAuthor")
+  activities             Activity[]      @relation("ActivityOwner")
+  ownedTasks             Task[]          @relation("TaskOwner")
+  assignedCompanies      Company[]       @relation("CompanyAssignee")
+  assignedContacts       Contact[]       @relation("ContactAssignee")
+  notifications          Notification[]  @relation("NotificationRecipient")
+  triggeredNotifications Notification[]  @relation("NotificationActor")
+  createdEmailTemplates  EmailTemplate[] @relation("EmailTemplateCreator")
 
   @@map("profiles")
 }
@@ -428,17 +429,20 @@ model CustomObjectRecord {
 /// l'envoi (voir src/lib/template-render.ts). `variables` liste les tokens
 /// détectés dans le contenu, pour affichage/validation côté UI.
 model EmailTemplate {
-  id        String   @id @default(uuid()) @db.Uuid
-  title     String
-  subject   String
-  body      String
-  variables Json     @default("[]")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String
+  subject     String
+  body        String
+  variables   Json     @default("[]")
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
+  createdBy     Profile?       @relation("EmailTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
   sequenceSteps SequenceStep[]
   automations   Automation[]
 
+  @@index([createdById])
   @@map("email_templates")
 }
 

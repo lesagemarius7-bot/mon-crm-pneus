@@ -1,9 +1,15 @@
+import { getCurrentUserId } from "@/lib/auth";
 import { listEmailTemplates } from "@/lib/queries/email-templates";
+import { listProfileOptions } from "@/lib/queries/profiles";
 import { TemplateFormDialog } from "@/components/templates/template-form-dialog";
 import { TemplatesPanel } from "@/components/templates/templates-panel";
 
 export default async function TemplatesPage() {
-  const templates = await listEmailTemplates();
+  const [templates, profiles, currentUserId] = await Promise.all([
+    listEmailTemplates(),
+    listProfileOptions(),
+    getCurrentUserId(),
+  ]);
 
   return (
     <div className="flex h-full flex-col">
@@ -19,7 +25,11 @@ export default async function TemplatesPage() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto p-4">
-        <TemplatesPanel templates={templates} />
+        <TemplatesPanel
+          templates={templates}
+          profiles={profiles}
+          currentUserId={currentUserId}
+        />
       </div>
     </div>
   );

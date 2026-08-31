@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { extractVariables } from "@/lib/template-render";
+import { getCurrentUserId } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { listEmailTemplateOptions } from "@/lib/queries/email-templates";
 
@@ -22,6 +23,7 @@ export type EmailTemplateInput = z.infer<typeof emailTemplateSchema>;
 export async function createEmailTemplateAction(input: EmailTemplateInput) {
   const parsed = emailTemplateSchema.parse(input);
   const prisma = getPrisma();
+  const createdById = await getCurrentUserId();
 
   const template = await prisma.emailTemplate.create({
     data: {
@@ -29,6 +31,7 @@ export async function createEmailTemplateAction(input: EmailTemplateInput) {
       subject: parsed.subject,
       body: parsed.body,
       variables: extractVariables(`${parsed.subject} ${parsed.body}`),
+      createdById: createdById ?? undefined,
     },
   });
 
