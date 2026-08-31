@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { STAGE_CHANGE_PREFIX } from "@/lib/activity-timeline";
+import { runAutomationsForTrigger } from "@/lib/automation-engine";
 import { getCurrentUserId } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { getDealDetail, listPipelineStages } from "@/lib/queries/deals";
@@ -68,7 +69,9 @@ export async function createDealAction(input: CreateDealInput) {
  * closedAt based on whether the destination stage is a terminal
  * (won/lost) stage, mirroring what changing status manually would do, and
  * logs the transition as an Activity so it shows up in the deal's
- * "Activités & Suivi" timeline with its own icon.
+ * "Activités & Suivi" timeline with its own icon. When the destination
+ * stage is a Won or Lost stage, also runs any active Automations
+ * configured for that trigger (see src/lib/automation-engine.ts).
  */
 export async function moveDealStageAction(dealId: string, stageId: string) {
   const prisma = getPrisma();
@@ -103,5 +106,18 @@ export async function moveDealStageAction(dealId: string, stageId: string) {
     }),
   ]);
 
+  if (stage.isWon || stage.isLost) {
+    await runAutomationsForTrigger(stage.isWon ? "DEAL_WON" : "DEAL_LOST", {
+      id: dealId,
+      name: deal.name,
+      value: deal.value ? deal.value.toNumber() : null,
+      companyId: deal.companyId,
+      contactId: deal.contactId,
+      stageName: stage.name,
+    });
+  }
+
   revalidatePath("/deals");
+  revalidatePath("/tasks");
+  revalidatePath("/companies");
 }

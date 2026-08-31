@@ -1,10 +1,15 @@
 import type {
   ActivityType,
+  AutomationActionType,
+  AutomationTrigger,
   CompanyStatus,
   CompanyType,
+  ContactListType,
   ContactRole,
   CustomFieldEntity,
   CustomFieldType,
+  SequenceEnrollmentStatus,
+  SequenceStepAction,
   TaskPriority,
   TaskStatus,
   TaskType,
@@ -98,6 +103,41 @@ export const CUSTOM_FIELD_TYPE_LABELS: Record<CustomFieldType, string> = {
   EMAIL: "Email",
   PHONE: "Téléphone",
   CURRENCY: "Devise",
+};
+
+export const SEQUENCE_STEP_ACTION_LABELS: Record<SequenceStepAction, string> = {
+  SEND_EMAIL: "Envoyer un template",
+  CREATE_TASK: "Créer une tâche",
+};
+
+export const SEQUENCE_ENROLLMENT_STATUS_LABELS: Record<SequenceEnrollmentStatus, string> = {
+  ACTIVE: "Active",
+  COMPLETED: "Terminée",
+  CANCELLED: "Annulée",
+};
+
+export const SEQUENCE_ENROLLMENT_STATUS_BADGE: Record<
+  SequenceEnrollmentStatus,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  ACTIVE: "default",
+  COMPLETED: "secondary",
+  CANCELLED: "outline",
+};
+
+export const CONTACT_LIST_TYPE_LABELS: Record<ContactListType, string> = {
+  STATIC: "Liste statique",
+  DYNAMIC: "Liste dynamique (filtres)",
+};
+
+export const AUTOMATION_TRIGGER_LABELS: Record<AutomationTrigger, string> = {
+  DEAL_WON: "Quand un deal passe en Gagné",
+  DEAL_LOST: "Quand un deal passe en Perdu",
+};
+
+export const AUTOMATION_ACTION_TYPE_LABELS: Record<AutomationActionType, string> = {
+  CREATE_TASK: "Créer une tâche",
+  SEND_EMAIL_TEMPLATE: "Envoyer un template",
 };
 
 const currencyFormatter = new Intl.NumberFormat("fr-FR", {

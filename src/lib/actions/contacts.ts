@@ -7,7 +7,12 @@ import { ContactRole } from "@/generated/prisma/enums";
 import { resolveEnumValue, splitFullName } from "@/lib/csv-import-utils";
 import { CONTACT_ROLE_LABELS } from "@/lib/labels";
 import { getPrisma } from "@/lib/prisma";
+import { listContactOptions } from "@/lib/queries/contacts";
 import type { ImportResult } from "@/components/import/import-csv-dialog";
+
+export async function listContactOptionsAction() {
+  return listContactOptions();
+}
 
 const contactSchema = z.object({
   firstName: z.string().trim().min(1, "Le prénom est requis."),

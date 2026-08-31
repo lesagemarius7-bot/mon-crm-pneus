@@ -7,10 +7,14 @@ import {
   CheckSquare,
   Gauge,
   KanbanSquare,
+  List,
   LogOut,
+  Mail,
   Settings,
   Truck,
   Users,
+  Workflow,
+  Zap,
 } from "lucide-react";
 
 import { signOutAction } from "@/lib/actions/auth";
@@ -33,6 +37,13 @@ const NAV_ITEMS = [
   { title: "Flottes", url: "/vehicles", icon: Truck },
   { title: "Deals", url: "/deals", icon: KanbanSquare },
   { title: "Tâches", url: "/tasks", icon: CheckSquare },
+];
+
+const AUTOMATION_NAV_ITEMS = [
+  { title: "Templates", url: "/templates", icon: Mail },
+  { title: "Séquences", url: "/sequences", icon: Workflow },
+  { title: "Listes", url: "/lists", icon: List },
+  { title: "Automatisations", url: "/automations", icon: Zap },
 ];
 
 export function AppSidebar({ userEmail }: { userEmail?: string }) {
@@ -62,6 +73,26 @@ export function AppSidebar({ userEmail }: { userEmail?: string }) {
           <SidebarGroupContent>
             <SidebarMenu>
               {NAV_ITEMS.map((item) => (
+                <SidebarMenuItem key={item.url}>
+                  <SidebarMenuButton
+                    render={<Link href={item.url} />}
+                    isActive={pathname.startsWith(item.url)}
+                    tooltip={item.title}
+                  >
+                    <item.icon />
+                    <span>{item.title}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Automation</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {AUTOMATION_NAV_ITEMS.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton
                     render={<Link href={item.url} />}

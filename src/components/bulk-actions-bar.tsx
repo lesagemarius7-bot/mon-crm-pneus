@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Loader2, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ export function BulkActionsBar({
   onClear,
   onConfirmDelete,
   position = "fixed",
+  extraActions,
 }: {
   selectedCount: number;
   /** Singular, lowercase, e.g. "entreprise". */
@@ -42,6 +43,8 @@ export function BulkActionsBar({
   onClear: () => void;
   onConfirmDelete: () => Promise<void>;
   position?: "fixed" | "absolute";
+  /** Extra buttons (e.g. "Ajouter à une liste") rendered before Delete. */
+  extraActions?: ReactNode;
 }) {
   const [deleting, setDeleting] = useState(false);
 
@@ -70,6 +73,7 @@ export function BulkActionsBar({
         <Button variant="ghost" size="icon-sm" onClick={onClear} aria-label="Désélectionner">
           <X />
         </Button>
+        {extraActions}
         <AlertDialog>
           <AlertDialogTrigger render={<Button variant="destructive" size="sm" />}>
             <Trash2 />

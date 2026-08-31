@@ -175,11 +175,13 @@ model Contact {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  company    Company?   @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  deals      Deal[]
-  notes      Note[]
-  activities Activity[]
-  tasks      Task[]
+  company     Company?                @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  deals       Deal[]
+  notes       Note[]
+  activities  Activity[]
+  tasks       Task[]
+  enrollments SequenceEnrollment[]
+  listEntries ContactListMembership[]
 
   @@index([companyId])
   @@map("contacts")
@@ -400,4 +402,171 @@ model CustomObjectRecord {
 
   @@index([objectId])
   @@map("custom_object_records")
+}
+
+// ---------------------------------------------------------------------------
+// Automation : Templates d'emails, Séquences, Listes, Déclencheurs
+// ---------------------------------------------------------------------------
+
+/// Modèle d'email réutilisable. `body`/`subject` supportent des variables
+/// {{contact.firstName}}, {{company.name}}, {{deal.amount}}... résolues à
+/// l'envoi (voir src/lib/template-render.ts). `variables` liste les tokens
+/// détectés dans le contenu, pour affichage/validation côté UI.
+model EmailTemplate {
+  id        String   @id @default(uuid()) @db.Uuid
+  title     String
+  subject   String
+  body      String
+  variables Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sequenceSteps SequenceStep[]
+  automations   Automation[]
+
+  @@map("email_templates")
+}
+
+enum SequenceStepAction {
+  SEND_EMAIL
+  CREATE_TASK
+}
+
+enum SequenceEnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model Sequence {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  steps       SequenceStep[]
+  enrollments SequenceEnrollment[]
+
+  @@map("sequences")
+}
+
+/// One step of a Sequence. `delayDays` is the wait, in days, after the
+/// previous step (or after enrollment for the first step) before this step
+/// fires — so "send template X, wait 3 days, then task Y" is two steps:
+/// {order: 1, delayDays: 0, action: SEND_EMAIL}, {order: 2, delayDays: 3,
+/// action: CREATE_TASK}.
+model SequenceStep {
+  id          String             @id @default(uuid()) @db.Uuid
+  sequenceId  String             @db.Uuid
+  order       Int
+  delayDays   Int                @default(0)
+  action      SequenceStepAction
+  templateId  String?            @db.Uuid
+  taskSubject String?
+  taskType    TaskType?
+  taskReason  String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  sequence Sequence       @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  template EmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@unique([sequenceId, order])
+  @@index([sequenceId])
+  @@map("sequence_steps")
+}
+
+/// Links one Contact to one Sequence and tracks progress. `nextStepDueAt`
+/// is when processDueSequenceStepsAction() should next act on this
+/// enrollment — there's no cron in this app, so it's processed
+/// opportunistically on every /sequences page load, plus an explicit
+/// "Exécuter les étapes dues" button.
+model SequenceEnrollment {
+  id               String                   @id @default(uuid()) @db.Uuid
+  sequenceId       String                   @db.Uuid
+  contactId        String                   @db.Uuid
+  status           SequenceEnrollmentStatus @default(ACTIVE)
+  currentStepOrder Int                      @default(0)
+  nextStepDueAt    DateTime?
+  enrolledAt       DateTime                 @default(now())
+  completedAt      DateTime?
+
+  sequence Sequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  contact  Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([sequenceId, contactId])
+  @@index([sequenceId])
+  @@index([contactId])
+  @@index([nextStepDueAt])
+  @@map("sequence_enrollments")
+}
+
+enum ContactListType {
+  STATIC
+  DYNAMIC
+}
+
+/// STATIC lists are an explicit member set (ContactListMembership rows).
+/// DYNAMIC lists compute membership on read from `filters`
+/// ({status?, companyType?, minDealValue?} — see src/lib/queries/contact-lists.ts).
+model ContactList {
+  id        String          @id @default(uuid()) @db.Uuid
+  name      String
+  type      ContactListType @default(STATIC)
+  filters   Json?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  members ContactListMembership[]
+
+  @@map("contact_lists")
+}
+
+model ContactListMembership {
+  id        String   @id @default(uuid()) @db.Uuid
+  listId    String   @db.Uuid
+  contactId String   @db.Uuid
+  addedAt   DateTime @default(now())
+
+  list    ContactList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  contact Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, contactId])
+  @@index([listId])
+  @@index([contactId])
+  @@map("contact_list_memberships")
+}
+
+enum AutomationTrigger {
+  DEAL_WON
+  DEAL_LOST
+}
+
+enum AutomationActionType {
+  CREATE_TASK
+  SEND_EMAIL_TEMPLATE
+}
+
+/// Basic trigger -> action rules, executed synchronously from
+/// moveDealStageAction (see src/lib/automation-engine.ts) — no polling or
+/// cron needed since deal-stage moves already happen through one action.
+model Automation {
+  id          String               @id @default(uuid()) @db.Uuid
+  name        String
+  isActive    Boolean              @default(true)
+  trigger     AutomationTrigger
+  actionType  AutomationActionType
+  templateId  String?              @db.Uuid
+  taskSubject String?
+  taskType    TaskType?
+  taskReason  String?
+  delayDays   Int                  @default(0)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  template EmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@map("automations")
 }

@@ -17,3 +17,19 @@ export async function listContacts() {
 }
 
 export type ContactRow = Awaited<ReturnType<typeof listContacts>>[number];
+
+/** Lightweight list for pickers (sequence enrollment, list membership). */
+export async function listContactOptions() {
+  const prisma = getPrisma();
+  return prisma.contact.findMany({
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      company: { select: { id: true, name: true } },
+    },
+  });
+}
+
+export type ContactOption = Awaited<ReturnType<typeof listContactOptions>>[number];

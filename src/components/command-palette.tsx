@@ -2,7 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, CheckSquare, KanbanSquare, Settings, Truck, Users } from "lucide-react";
+import {
+  Building2,
+  CheckSquare,
+  KanbanSquare,
+  List,
+  Mail,
+  Settings,
+  Truck,
+  Users,
+  Workflow,
+  Zap,
+} from "lucide-react";
 
 import {
   CommandDialog,
@@ -23,6 +34,10 @@ const NAV_COMMANDS = [
   { label: "Flottes & équipements", url: "/vehicles", icon: Truck },
   { label: "Deals", url: "/deals", icon: KanbanSquare },
   { label: "Tâches", url: "/tasks", icon: CheckSquare },
+  { label: "Templates d'emails", url: "/templates", icon: Mail },
+  { label: "Séquences", url: "/sequences", icon: Workflow },
+  { label: "Listes de contacts", url: "/lists", icon: List },
+  { label: "Automatisations", url: "/automations", icon: Zap },
   { label: "Paramètres", url: "/settings", icon: Settings },
 ];
 

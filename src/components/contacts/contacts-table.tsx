@@ -22,6 +22,7 @@ import type { ContactRow } from "@/lib/queries/contacts";
 import { deleteContactsAction, importContactsAction } from "@/lib/actions/contacts";
 import { downloadCsv } from "@/lib/csv";
 import { BulkActionsBar } from "@/components/bulk-actions-bar";
+import { BulkAddToListDialog, BulkAddToSequenceDialog } from "@/components/contacts/bulk-add-dialogs";
 import { contactColumns } from "@/components/contacts/columns";
 import { CONTACT_EXPORT_COLUMNS, toContactCsvRow } from "@/components/contacts/contact-csv";
 import { ContactFormDialog } from "@/components/contacts/contact-form-dialog";
@@ -266,6 +267,12 @@ export function ContactsTable({
         itemLabelPlural="contacts"
         onClear={() => setRowSelection({})}
         onConfirmDelete={handleBulkDelete}
+        extraActions={
+          <>
+            <BulkAddToListDialog contactIds={selectedIds} onDone={() => router.refresh()} />
+            <BulkAddToSequenceDialog contactIds={selectedIds} onDone={() => router.refresh()} />
+          </>
+        }
       />
     </div>
   );
