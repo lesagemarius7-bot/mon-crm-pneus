@@ -20,7 +20,10 @@ import { createActivityAction, getActivitiesAction } from "@/lib/actions/activit
 import { createNoteAction } from "@/lib/actions/notes";
 import { formatDateTime } from "@/lib/labels";
 import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { MentionText } from "@/components/mentions/mention-text";
+import { MentionTextarea } from "@/components/mentions/mention-textarea";
 import {
   Select,
   SelectContent,
@@ -28,7 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 
 type QuickEntryType = "NOTE" | "APPEL" | "RENDEZ_VOUS" | "EMAIL";
 
@@ -76,21 +78,33 @@ function TimelineItem({ entry }: { entry: TimelineEntry }) {
       </div>
       <div className="min-w-0 flex-1 border-b pb-3">
         {entry.kind === "note" ? (
-          <p className="whitespace-pre-wrap text-sm">{entry.content}</p>
+          <MentionText text={entry.content} className="whitespace-pre-wrap text-sm" />
         ) : (
           <>
             <p className="text-sm font-medium">{entry.subject}</p>
             {entry.description && (
-              <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground">
-                {entry.description}
-              </p>
+              <MentionText
+                text={entry.description}
+                className="mt-0.5 block whitespace-pre-wrap text-sm text-muted-foreground"
+              />
             )}
           </>
         )}
-        <p className="mt-1 text-xs text-muted-foreground">
-          {entry.kind === "note" && entry.authorName ? `${entry.authorName} · ` : ""}
+        <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+          {entry.kind === "note" && entry.authorName && <span>{entry.authorName} ·</span>}
+          {entry.kind === "activity" && entry.ownerName && (
+            <span className="flex items-center gap-1">
+              <Avatar size="sm" className="size-4">
+                {entry.ownerAvatarUrl && <AvatarImage src={entry.ownerAvatarUrl} alt="" />}
+                <AvatarFallback className="text-[8px]">
+                  {entry.ownerName[0]?.toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              {entry.activityType === "EMAIL" ? "Envoyé par" : "Par"} {entry.ownerName} ·
+            </span>
+          )}
           {formatDateTime(entry.createdAt)}
-        </p>
+        </div>
       </div>
     </li>
   );
@@ -142,10 +156,10 @@ export function ActivityTimeline({
   return (
     <div className="flex flex-col gap-4">
       <div className="space-y-2">
-        <Textarea
+        <MentionTextarea
           value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Rédiger une note ou consigner une activité..."
+          onChange={setText}
+          placeholder="Rédiger une note ou consigner une activité... (@ pour mentionner)"
           rows={3}
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {

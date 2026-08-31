@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { CompanyStatus, CompanyType } from "@/generated/prisma/enums";
+import { getCurrentUserId } from "@/lib/auth";
 import { parseOptionalInt, parseOptionalNumber, resolveEnumValue } from "@/lib/csv-import-utils";
 import { COMPANY_STATUS_LABELS, COMPANY_TYPE_LABELS } from "@/lib/labels";
+import { notifyAssignment } from "@/lib/notifications";
 import { getPrisma } from "@/lib/prisma";
 import { getCompanyDetail } from "@/lib/queries/companies";
 import type { ImportResult } from "@/components/import/import-csv-dialog";
@@ -29,6 +31,7 @@ export type CompanyFormInput = z.infer<typeof companySchema>;
 export async function createCompanyAction(input: CompanyFormInput) {
   const parsed = companySchema.parse(input);
   const prisma = getPrisma();
+  const actorId = await getCurrentUserId();
 
   const company = await prisma.company.create({
     data: {
@@ -42,6 +45,14 @@ export async function createCompanyAction(input: CompanyFormInput) {
     },
   });
 
+  await notifyAssignment({
+    recipientId: parsed.assignedToId,
+    actorId,
+    type: "COMPANY_ASSIGNED",
+    entityLabel: `l'entreprise « ${company.name} »`,
+    link: `/companies?id=${company.id}`,
+  });
+
   revalidatePath("/companies");
   return company.id;
 }
@@ -49,8 +60,9 @@ export async function createCompanyAction(input: CompanyFormInput) {
 export async function updateCompanyAction(id: string, input: CompanyFormInput) {
   const parsed = companySchema.parse(input);
   const prisma = getPrisma();
+  const actorId = await getCurrentUserId();
 
-  await prisma.company.update({
+  const company = await prisma.company.update({
     where: { id },
     data: {
       name: parsed.name,
@@ -61,6 +73,14 @@ export async function updateCompanyAction(id: string, input: CompanyFormInput) {
       estimatedRevenue: parsed.estimatedRevenue ?? null,
       assignedToId: parsed.assignedToId || null,
     },
+  });
+
+  await notifyAssignment({
+    recipientId: parsed.assignedToId,
+    actorId,
+    type: "COMPANY_ASSIGNED",
+    entityLabel: `l'entreprise « ${company.name} »`,
+    link: `/companies?id=${company.id}`,
   });
 
   revalidatePath("/companies");
@@ -95,7 +115,18 @@ export async function updateCompanyDetailsAction(
   const parsed = companyDetailsSchema.parse(input);
   const prisma = getPrisma();
 
-  await prisma.company.update({ where: { id }, data: parsed });
+  const company = await prisma.company.update({ where: { id }, data: parsed });
+
+  if (parsed.assignedToId !== undefined) {
+    const actorId = await getCurrentUserId();
+    await notifyAssignment({
+      recipientId: parsed.assignedToId,
+      actorId,
+      type: "COMPANY_ASSIGNED",
+      entityLabel: `l'entreprise « ${company.name} »`,
+      link: `/companies?id=${company.id}`,
+    });
+  }
 
   revalidatePath("/companies");
   revalidatePath("/deals");

@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { ContactRole } from "@/generated/prisma/enums";
+import { getCurrentUserId } from "@/lib/auth";
 import { resolveEnumValue, splitFullName } from "@/lib/csv-import-utils";
 import { CONTACT_ROLE_LABELS } from "@/lib/labels";
+import { notifyAssignment } from "@/lib/notifications";
 import { getPrisma } from "@/lib/prisma";
 import { listContactOptions } from "@/lib/queries/contacts";
 import type { ImportResult } from "@/components/import/import-csv-dialog";
@@ -29,6 +31,7 @@ export type ContactFormInput = z.infer<typeof contactSchema>;
 export async function createContactAction(input: ContactFormInput) {
   const parsed = contactSchema.parse(input);
   const prisma = getPrisma();
+  const actorId = await getCurrentUserId();
 
   const contact = await prisma.contact.create({
     data: {
@@ -42,6 +45,14 @@ export async function createContactAction(input: ContactFormInput) {
     },
   });
 
+  await notifyAssignment({
+    recipientId: parsed.assignedToId,
+    actorId,
+    type: "CONTACT_ASSIGNED",
+    entityLabel: `le contact « ${contact.firstName} ${contact.lastName} »`,
+    link: `/contacts?id=${contact.id}`,
+  });
+
   revalidatePath("/companies");
   revalidatePath("/contacts");
   return contact.id;
@@ -50,8 +61,9 @@ export async function createContactAction(input: ContactFormInput) {
 export async function updateContactAction(id: string, input: ContactFormInput) {
   const parsed = contactSchema.parse(input);
   const prisma = getPrisma();
+  const actorId = await getCurrentUserId();
 
-  await prisma.contact.update({
+  const contact = await prisma.contact.update({
     where: { id },
     data: {
       firstName: parsed.firstName,
@@ -62,6 +74,14 @@ export async function updateContactAction(id: string, input: ContactFormInput) {
       companyId: parsed.companyId,
       assignedToId: parsed.assignedToId || null,
     },
+  });
+
+  await notifyAssignment({
+    recipientId: parsed.assignedToId,
+    actorId,
+    type: "CONTACT_ASSIGNED",
+    entityLabel: `le contact « ${contact.firstName} ${contact.lastName} »`,
+    link: `/contacts?id=${contact.id}`,
   });
 
   revalidatePath("/companies");

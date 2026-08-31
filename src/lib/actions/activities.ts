@@ -7,7 +7,9 @@ import { ActivityType } from "@/generated/prisma/enums";
 import { getCurrentUserId } from "@/lib/auth";
 import { buildTimeline, type TimelineEntry } from "@/lib/activity-timeline";
 import { ACTIVITY_TYPE_LABELS } from "@/lib/labels";
+import { notifyMentions } from "@/lib/notifications";
 import { getPrisma } from "@/lib/prisma";
+import { timelineEntityLink } from "@/lib/timeline-links";
 
 const activitySchema = z.object({
   type: z.enum(ActivityType),
@@ -39,6 +41,12 @@ export async function createActivityAction(input: ActivityInput) {
       ownerId: ownerId ?? undefined,
       completedAt: new Date(),
     },
+  });
+
+  await notifyMentions({
+    text: parsed.description,
+    actorId: ownerId,
+    link: timelineEntityLink({ companyId: parsed.companyId, dealId: parsed.dealId }),
   });
 
   if (parsed.companyId) revalidatePath("/companies");
@@ -105,7 +113,11 @@ export async function getActivitiesAction(params: {
       include: { author: true },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.activity.findMany({ where, orderBy: { createdAt: "desc" } }),
+    prisma.activity.findMany({
+      where,
+      include: { owner: true },
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
   return buildTimeline(notes, activities);

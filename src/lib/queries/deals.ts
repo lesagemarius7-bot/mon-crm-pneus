@@ -44,7 +44,7 @@ export async function getDealDetail(id: string) {
         orderBy: { createdAt: "desc" },
         include: { author: true },
       },
-      activities: { orderBy: { createdAt: "desc" } },
+      activities: { orderBy: { createdAt: "desc" }, include: { owner: true } },
     },
   });
 

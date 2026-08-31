@@ -105,11 +105,15 @@ export function ContactsTable({
   companies,
   profiles,
   currentUserId,
+  initialSelectedId,
 }: {
   data: ContactRow[];
   companies: CompanyOption[];
   profiles: ProfileOption[];
   currentUserId: string | null;
+  /** Opens that contact's edit dialog on mount — e.g. a "?id=..." link from
+   * a notification. */
+  initialSelectedId?: string | null;
 }) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: "createdAt", desc: true },
@@ -121,7 +125,9 @@ export function ContactsTable({
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [companyFilter, setCompanyFilter] = useState(ALL_COMPANIES);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const [editingContact, setEditingContact] = useState<ContactRow | null>(null);
+  const [editingContact, setEditingContact] = useState<ContactRow | null>(
+    () => data.find((c) => c.id === initialSelectedId) ?? null
+  );
   const [mineOnly, setMineOnly] = useState(false);
   const router = useRouter();
 

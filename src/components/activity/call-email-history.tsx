@@ -7,6 +7,8 @@ import type { TimelineEntry } from "@/lib/activity-timeline";
 import { getActivitiesAction } from "@/lib/actions/activities";
 import { formatDateTime } from "@/lib/labels";
 import { cn } from "@/lib/utils";
+import { MentionText } from "@/components/mentions/mention-text";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 type ActivityEntry = Extract<TimelineEntry, { kind: "activity" }>;
 
@@ -83,13 +85,25 @@ export function CallEmailHistory({
             <div className="min-w-0 flex-1 border-b pb-3">
               <p className="text-sm font-medium">{entry.subject}</p>
               {entry.description && (
-                <p className="mt-0.5 whitespace-pre-wrap text-sm text-muted-foreground">
-                  {entry.description}
-                </p>
+                <MentionText
+                  text={entry.description}
+                  className="mt-0.5 block whitespace-pre-wrap text-sm text-muted-foreground"
+                />
               )}
-              <p className="mt-1 text-xs text-muted-foreground">
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                {entry.ownerName && (
+                  <span className="flex items-center gap-1">
+                    <Avatar size="sm" className="size-4">
+                      {entry.ownerAvatarUrl && <AvatarImage src={entry.ownerAvatarUrl} alt="" />}
+                      <AvatarFallback className="text-[8px]">
+                        {entry.ownerName[0]?.toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    {entry.activityType === "EMAIL" ? "Envoyé par" : "Par"} {entry.ownerName} ·
+                  </span>
+                )}
                 {formatDateTime(entry.createdAt)}
-              </p>
+              </div>
             </div>
           </li>
         );

@@ -15,6 +15,8 @@ export type TimelineEntry =
       subject: string;
       description: string | null;
       createdAt: Date;
+      ownerName: string | null;
+      ownerAvatarUrl: string | null;
     };
 
 type NoteLike = {
@@ -30,6 +32,7 @@ type ActivityLike = {
   subject: string;
   description: string | null;
   createdAt: Date;
+  owner?: { fullName: string | null; email: string; avatarUrl: string | null } | null;
 };
 
 /** Marks activities auto-logged by moveDealStageAction so the timeline can
@@ -56,6 +59,8 @@ export function buildTimeline(
     subject: activity.subject,
     description: activity.description,
     createdAt: activity.createdAt,
+    ownerName: activity.owner?.fullName ?? activity.owner?.email ?? null,
+    ownerAvatarUrl: activity.owner?.avatarUrl ?? null,
   }));
 
   return [...noteEntries, ...activityEntries].sort(

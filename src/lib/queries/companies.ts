@@ -50,6 +50,7 @@ export async function getCompanyDetail(id: string) {
       activities: {
         orderBy: { createdAt: "desc" },
         take: 20,
+        include: { owner: true },
       },
       assignedTo: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
     },

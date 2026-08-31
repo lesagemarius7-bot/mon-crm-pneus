@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { AppSidebar } from "@/components/app-sidebar";
 import { CommandPalette } from "@/components/command-palette";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { SearchTrigger } from "@/components/search-trigger";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -25,6 +26,9 @@ export default async function DashboardLayout({
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="h-4" />
           <SearchTrigger />
+          <div className="ml-auto">
+            <NotificationBell />
+          </div>
         </header>
         <main className="flex-1 overflow-auto">{children}</main>
       </SidebarInset>

@@ -33,11 +33,15 @@ export function KanbanBoard({
   deals: initialDeals,
   companies,
   currentUserId,
+  initialSelectedDealId,
 }: {
   stages: PipelineStage[];
   deals: BoardDeal[];
   companies: CompanyOption[];
   currentUserId: string | null;
+  /** Opens that deal's detail sheet on mount — e.g. a "?deal=..." link from
+   * a notification. */
+  initialSelectedDealId?: string | null;
 }) {
   const [deals, setDeals] = useState(initialDeals);
   // router.refresh() (useRealtimeSync's default onChange) re-fetches the
@@ -53,7 +57,9 @@ export function KanbanBoard({
   }
 
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
+  const [selectedDealId, setSelectedDealId] = useState<string | null>(
+    () => initialSelectedDealId ?? null
+  );
   const [mineOnly, setMineOnly] = useState(false);
   const [newDealDialog, setNewDealDialog] = useState<{
     open: boolean;

@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { TaskPriority, TaskStatus, TaskType } from "@/generated/prisma/enums";
 import { getCurrentUserId } from "@/lib/auth";
+import { notifyAssignment } from "@/lib/notifications";
 import { getPrisma } from "@/lib/prisma";
 import { listTasks, type TaskFilters } from "@/lib/queries/tasks";
 
@@ -29,8 +30,8 @@ export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export async function createTaskAction(input: CreateTaskInput) {
   const parsed = createTaskSchema.parse(input);
   const prisma = getPrisma();
-  const ownerId =
-    parsed.ownerId !== undefined ? parsed.ownerId : await getCurrentUserId();
+  const actorId = await getCurrentUserId();
+  const ownerId = parsed.ownerId !== undefined ? parsed.ownerId : actorId;
 
   const task = await prisma.task.create({
     data: {
@@ -44,6 +45,14 @@ export async function createTaskAction(input: CreateTaskInput) {
       dealId: parsed.dealId || null,
       ownerId: ownerId || null,
     },
+  });
+
+  await notifyAssignment({
+    recipientId: ownerId,
+    actorId,
+    type: "TASK_ASSIGNED",
+    entityLabel: `la tâche « ${parsed.subject} »`,
+    link: "/tasks",
   });
 
   revalidatePath("/tasks");
@@ -113,7 +122,16 @@ export async function updateTaskAction(id: string, input: UpdateTaskInput) {
  * selector in the task table/Kanban card. */
 export async function updateTaskOwnerAction(id: string, ownerId: string | null) {
   const prisma = getPrisma();
+  const actorId = await getCurrentUserId();
   const task = await prisma.task.update({ where: { id }, data: { ownerId } });
+
+  await notifyAssignment({
+    recipientId: ownerId,
+    actorId,
+    type: "TASK_ASSIGNED",
+    entityLabel: `la tâche « ${task.subject} »`,
+    link: "/tasks",
+  });
 
   revalidatePath("/tasks");
   if (task.companyId) revalidatePath("/companies");

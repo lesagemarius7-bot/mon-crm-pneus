@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentUserId } from "@/lib/auth";
+import { notifyMentions } from "@/lib/notifications";
 import { getPrisma } from "@/lib/prisma";
+import { timelineEntityLink } from "@/lib/timeline-links";
 
 const noteSchema = z.object({
   content: z.string().trim().min(1, "Le contenu est requis."),
@@ -26,6 +28,12 @@ export async function createNoteAction(input: NoteInput) {
       dealId: parsed.dealId || null,
       authorId: authorId ?? undefined,
     },
+  });
+
+  await notifyMentions({
+    text: parsed.content,
+    actorId: authorId,
+    link: timelineEntityLink({ companyId: parsed.companyId, dealId: parsed.dealId }),
   });
 
   if (parsed.companyId) revalidatePath("/companies");

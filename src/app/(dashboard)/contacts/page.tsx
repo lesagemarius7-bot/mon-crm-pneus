@@ -8,13 +8,15 @@ import { ContactFormDialog } from "@/components/contacts/contact-form-dialog";
 import { ContactsTable } from "@/components/contacts/contacts-table";
 import { Button } from "@/components/ui/button";
 
-export default async function ContactsPage() {
+export default async function ContactsPage({ searchParams }: PageProps<"/contacts">) {
   const [contacts, companies, profiles, currentUserId] = await Promise.all([
     listContacts(),
     listCompanyOptions(),
     listProfileOptions(),
     getCurrentUserId(),
   ]);
+  const { id } = await searchParams;
+  const initialSelectedId = typeof id === "string" ? id : null;
 
   return (
     <div className="flex h-full flex-col">
@@ -42,6 +44,7 @@ export default async function ContactsPage() {
           companies={companies}
           profiles={profiles}
           currentUserId={currentUserId}
+          initialSelectedId={initialSelectedId}
         />
       </div>
     </div>

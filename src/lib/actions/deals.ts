@@ -6,6 +6,7 @@ import { z } from "zod";
 import { STAGE_CHANGE_PREFIX } from "@/lib/activity-timeline";
 import { runAutomationsForTrigger } from "@/lib/automation-engine";
 import { getCurrentUserId } from "@/lib/auth";
+import { notifyAssignment } from "@/lib/notifications";
 import { getPrisma } from "@/lib/prisma";
 import { getDealDetail, listPipelineStages } from "@/lib/queries/deals";
 
@@ -39,6 +40,7 @@ export type CreateDealInput = z.infer<typeof createDealSchema>;
 export async function createDealAction(input: CreateDealInput) {
   const parsed = createDealSchema.parse(input);
   const prisma = getPrisma();
+  const actorId = await getCurrentUserId();
 
   const deal = await prisma.deal.create({
     data: {
@@ -56,6 +58,14 @@ export async function createDealAction(input: CreateDealInput) {
       contact: { select: { id: true, firstName: true, lastName: true } },
       owner: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
     },
+  });
+
+  await notifyAssignment({
+    recipientId: parsed.ownerId,
+    actorId,
+    type: "DEAL_ASSIGNED",
+    entityLabel: `le deal « ${deal.name} »`,
+    link: `/deals?deal=${deal.id}`,
   });
 
   revalidatePath("/deals");
@@ -129,7 +139,16 @@ export async function moveDealStageAction(dealId: string, stageId: string) {
  * selector in the Kanban card and detail sheet. */
 export async function updateDealOwnerAction(dealId: string, ownerId: string | null) {
   const prisma = getPrisma();
-  await prisma.deal.update({ where: { id: dealId }, data: { ownerId } });
+  const actorId = await getCurrentUserId();
+  const deal = await prisma.deal.update({ where: { id: dealId }, data: { ownerId } });
+
+  await notifyAssignment({
+    recipientId: ownerId,
+    actorId,
+    type: "DEAL_ASSIGNED",
+    entityLabel: `le deal « ${deal.name} »`,
+    link: `/deals?deal=${deal.id}`,
+  });
 
   revalidatePath("/deals");
 }

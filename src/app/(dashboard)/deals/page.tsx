@@ -4,13 +4,15 @@ import { listDealsForBoard, listPipelineStages } from "@/lib/queries/deals";
 import { formatCurrency } from "@/lib/labels";
 import { KanbanBoard } from "@/components/deals/kanban-board";
 
-export default async function DealsPage() {
+export default async function DealsPage({ searchParams }: PageProps<"/deals">) {
   const [stages, deals, companies, currentUserId] = await Promise.all([
     listPipelineStages(),
     listDealsForBoard(),
     listCompanyOptions(),
     getCurrentUserId(),
   ]);
+  const { deal } = await searchParams;
+  const initialSelectedDealId = typeof deal === "string" ? deal : null;
 
   const openTotal = deals
     .filter((deal) => {
@@ -36,6 +38,7 @@ export default async function DealsPage() {
           deals={deals}
           companies={companies}
           currentUserId={currentUserId}
+          initialSelectedDealId={initialSelectedDealId}
         />
       </div>
     </div>

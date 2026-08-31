@@ -32,12 +32,14 @@ model Profile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  ownedDeals        Deal[]     @relation("DealOwner")
-  authoredNotes     Note[]     @relation("NoteAuthor")
-  activities        Activity[] @relation("ActivityOwner")
-  ownedTasks        Task[]     @relation("TaskOwner")
-  assignedCompanies Company[]  @relation("CompanyAssignee")
-  assignedContacts  Contact[]  @relation("ContactAssignee")
+  ownedDeals             Deal[]         @relation("DealOwner")
+  authoredNotes          Note[]         @relation("NoteAuthor")
+  activities             Activity[]     @relation("ActivityOwner")
+  ownedTasks             Task[]         @relation("TaskOwner")
+  assignedCompanies      Company[]      @relation("CompanyAssignee")
+  assignedContacts       Contact[]      @relation("ContactAssignee")
+  notifications          Notification[] @relation("NotificationRecipient")
+  triggeredNotifications Notification[] @relation("NotificationActor")
 
   @@map("profiles")
 }
@@ -588,4 +590,39 @@ model Automation {
   template EmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
   @@map("automations")
+}
+
+// ---------------------------------------------------------------------------
+// Notifications in-app
+// ---------------------------------------------------------------------------
+
+enum NotificationType {
+  MENTION
+  TASK_ASSIGNED
+  DEAL_ASSIGNED
+  COMPANY_ASSIGNED
+  CONTACT_ASSIGNED
+}
+
+/// Générées par une @mention dans une note/activité ou par une
+/// (ré)attribution de propriétaire — voir src/lib/notifications.ts. `link`
+/// pointe vers la fiche (ou vue) concernée pour permettre une redirection
+/// directe depuis la cloche de notifications.
+model Notification {
+  id          String           @id @default(uuid()) @db.Uuid
+  recipientId String           @db.Uuid
+  actorId     String?          @db.Uuid
+  type        NotificationType
+  title       String
+  body        String?
+  link        String
+  read        Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  recipient Profile  @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actor     Profile? @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([recipientId, read])
+  @@index([createdAt])
+  @@map("notifications")
 }
