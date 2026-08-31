@@ -65,7 +65,7 @@ export function TaskKanbanCard({
       )}
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-6">
-        <Badge variant="outline">{TASK_TYPE_LABELS[task.type]}</Badge>
+        <Badge variant="outline">{TASK_TYPE_LABELS[task.type] ?? task.type}</Badge>
         <Badge
           variant={
             task.priority === "HAUTE"
@@ -75,19 +75,19 @@ export function TaskKanbanCard({
                 : "outline"
           }
         >
-          {TASK_PRIORITY_LABELS[task.priority]}
+          {TASK_PRIORITY_LABELS[task.priority] ?? task.priority}
         </Badge>
       </div>
 
       {(task.company || task.contact) && (
         <div className="mt-2 space-y-0.5 pl-6 text-xs text-muted-foreground">
-          {task.company && (
+          {task.company?.name && (
             <div className="flex items-center gap-1.5">
               <Building2 className="size-3.5 shrink-0" />
               <span className="truncate">{task.company.name}</span>
             </div>
           )}
-          {task.contact && (
+          {task.contact && (task.contact.firstName || task.contact.lastName) && (
             <div className="flex items-center gap-1.5">
               <User className="size-3.5 shrink-0" />
               <span className="truncate">

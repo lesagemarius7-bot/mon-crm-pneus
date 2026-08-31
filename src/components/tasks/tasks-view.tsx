@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { AlertCircle, Columns3, Loader2, Table2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -36,8 +37,24 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { KanbanErrorBoundary } from "@/components/tasks/kanban-error-boundary";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
-import { TaskKanbanBoard } from "@/components/tasks/task-kanban-board";
+
+// dnd-kit measures the DOM (window/document) on mount — loading this
+// client-only, with no SSR pass, rules out any server/hydration mismatch
+// for the Kanban view entirely (it's also gated behind client-only view
+// state already, but this removes the possibility outright).
+const TaskKanbanBoard = dynamic(
+  () => import("@/components/tasks/task-kanban-board").then((m) => m.TaskKanbanBoard),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      </div>
+    ),
+  }
+);
 
 type ViewMode = "table" | "kanban";
 
@@ -102,7 +119,9 @@ export function TasksView({
     }).then(setTasks);
   }
 
-  useRealtimeSync(REALTIME_TABLES, refresh);
+  // Kanban view owns its own "tasks" subscription (see TaskKanbanBoard) —
+  // avoid a second, redundant channel + double-fetch while it's active.
+  useRealtimeSync(REALTIME_TABLES, refresh, { enabled: view === "table" });
 
   async function handleToggle(task: TaskRow, checked: boolean) {
     const nextStatus = checked ? "TERMINEE" : "A_FAIRE";
@@ -215,7 +234,9 @@ export function TasksView({
 
       <div className="min-h-0 flex-1 overflow-auto">
         {view === "kanban" ? (
-          <TaskKanbanBoard typeFilter={typeFilter === ALL_TYPES ? undefined : typeFilter} />
+          <KanbanErrorBoundary>
+            <TaskKanbanBoard typeFilter={typeFilter === ALL_TYPES ? undefined : typeFilter} />
+          </KanbanErrorBoundary>
         ) : tasks === null ? (
           <div className="flex h-full items-center justify-center">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />

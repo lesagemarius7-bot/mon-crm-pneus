@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -31,7 +31,18 @@ export function TaskKanbanBoard({ typeFilter }: { typeFilter?: string }) {
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   );
 
+  // A realtime "tasks" change — including the echo of this tab's own
+  // drag-and-drop write — must not replace the whole board mid-drag: that
+  // would swap out the DOM nodes dnd-kit is actively tracking out from
+  // under the gesture. Read via a ref (not a `refresh` dependency) so the
+  // realtime subscription itself doesn't need to reset.
+  const activeIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
+
   const refresh = useCallback(() => {
+    if (activeIdRef.current) return;
     listTasksAction({ dueFilter: "ALL", type: typeFilter as TaskRow["type"] | undefined }).then(
       setTasks
     );
