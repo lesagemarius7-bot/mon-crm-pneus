@@ -27,6 +27,7 @@ import { useRealtimeSync, type RealtimeTable } from "@/hooks/use-realtime-sync";
 import { ActiveFiltersBar } from "@/components/table/active-filters-bar";
 import { BulkActionsBar } from "@/components/bulk-actions-bar";
 import { companyColumns } from "@/components/companies/columns";
+import { CreateListFromCompaniesDialog } from "@/components/companies/create-list-from-companies-dialog";
 import { COMPANY_EXPORT_COLUMNS, toCompanyCsvRow } from "@/components/companies/company-csv";
 import { CompanyDetailSheet } from "@/components/companies/company-detail-sheet";
 import { Button } from "@/components/ui/button";
@@ -278,6 +279,12 @@ export function CompaniesTable({
         warningText="Les véhicules, deals, notes et activités associés seront aussi supprimés ; les contacts liés seront conservés mais détachés."
         onClear={() => setRowSelection({})}
         onConfirmDelete={handleBulkDelete}
+        extraActions={
+          <CreateListFromCompaniesDialog
+            companyIds={selectedIds}
+            onDone={() => router.refresh()}
+          />
+        }
       />
     </div>
   );

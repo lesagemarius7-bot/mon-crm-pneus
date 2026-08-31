@@ -97,3 +97,35 @@ export async function removeContactFromListAction(membershipId: string) {
   await prisma.contactListMembership.delete({ where: { id: membershipId } });
   revalidatePath("/lists");
 }
+
+/**
+ * Creates a new STATIC list from a Companies-table bulk selection —
+ * ContactList only ever holds contacts, so this resolves every contact
+ * currently attached to the selected companies and enrolls them all in
+ * one go, rather than adding a separate company-membership concept.
+ */
+export async function createListFromCompaniesAction(name: string, companyIds: string[]) {
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    throw new Error("Le nom de la liste est requis.");
+  }
+
+  const prisma = getPrisma();
+  const contacts = await prisma.contact.findMany({
+    where: { companyId: { in: companyIds } },
+    select: { id: true },
+  });
+
+  const list = await prisma.contactList.create({
+    data: {
+      name: trimmedName,
+      type: "STATIC",
+      members: { create: contacts.map((contact) => ({ contactId: contact.id })) },
+    },
+  });
+
+  revalidatePath("/lists");
+  revalidatePath("/companies");
+  revalidatePath("/contacts");
+  return { listId: list.id, contactCount: contacts.length };
+}
