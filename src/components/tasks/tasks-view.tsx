@@ -213,7 +213,7 @@ export function TasksView({
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto">
         {view === "kanban" ? (
           <TaskKanbanBoard typeFilter={typeFilter === ALL_TYPES ? undefined : typeFilter} />
         ) : tasks === null ? (

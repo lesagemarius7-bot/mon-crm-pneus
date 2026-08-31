@@ -10,6 +10,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import type { TaskRow } from "@/lib/queries/tasks";
@@ -122,30 +123,43 @@ export function TaskKanbanBoard({ typeFilter }: { typeFilter?: string }) {
   }
 
   if (tasks === null) {
-    return null;
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex h-full gap-3 overflow-x-auto p-4">
-        {TASK_BUCKETS.map((bucket) => (
-          <TaskKanbanColumn
-            key={bucket.id}
-            bucket={bucket.id}
-            label={bucket.label}
-            tasks={tasksByBucket.get(bucket.id) ?? []}
-            onToggleDone={handleToggleDone}
-          />
-        ))}
-      </div>
+    // Self-contained height (flex-col root + flex-1/min-h-0 row), mirroring
+    // the Deals KanbanBoard — needed because this component's own h-full
+    // used to sit directly on the DndContext's row div, which depended on
+    // its parent (a plain block, not a flex container) to hand down a
+    // definite height. That's fragile; owning the height chain here
+    // instead is what actually makes columns/cards render and stay
+    // draggable regardless of how the parent view wraps this component.
+    <div className="flex h-full flex-col">
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-4">
+          {TASK_BUCKETS.map((bucket) => (
+            <TaskKanbanColumn
+              key={bucket.id}
+              bucket={bucket.id}
+              label={bucket.label}
+              tasks={tasksByBucket.get(bucket.id) ?? []}
+              onToggleDone={handleToggleDone}
+            />
+          ))}
+        </div>
 
-      <DragOverlay>
-        {activeTask ? (
-          <div className="w-72 rotate-2 opacity-90">
-            <TaskKanbanCard task={activeTask} onToggleDone={() => {}} />
-          </div>
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+        <DragOverlay>
+          {activeTask ? (
+            <div className="w-72 rotate-2 opacity-90">
+              <TaskKanbanCard task={activeTask} onToggleDone={() => {}} />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    </div>
   );
 }
