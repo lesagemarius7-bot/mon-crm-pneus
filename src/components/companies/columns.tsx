@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowUpDown, Building2 } from "lucide-react";
 
 import type { CompanyRow } from "@/lib/queries/companies";
+import { dateRangeFilterFn, multiSelectFilterFn, textFilterFn } from "@/lib/table-filters";
 import {
   COMPANY_STATUS_BADGE,
   COMPANY_STATUS_LABELS,
@@ -14,7 +15,17 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ColumnFilterHeader } from "@/components/table/column-filter-header";
 import { legacyCreateColumnHelper } from "@tanstack/react-table/legacy";
+
+const COMPANY_TYPE_OPTIONS = Object.entries(COMPANY_TYPE_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}));
+const COMPANY_STATUS_OPTIONS = Object.entries(COMPANY_STATUS_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}));
 
 const columnHelper = legacyCreateColumnHelper<CompanyRow>();
 
@@ -65,11 +76,15 @@ export const companyColumns = columnHelper.columns([
   }),
   columnHelper.accessor("name", {
     header: ({ column }) => (
-      <SortableHeader
+      <ColumnFilterHeader
         label="Entreprise"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        column={column}
+        kind="text"
+        sortable
+        placeholder="Rechercher un nom..."
       />
     ),
+    filterFn: textFilterFn,
     cell: ({ row }) => (
       <div className="flex items-center gap-2 font-medium">
         <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted">
@@ -81,7 +96,15 @@ export const companyColumns = columnHelper.columns([
     minSize: 220,
   }),
   columnHelper.accessor("type", {
-    header: "Type",
+    header: ({ column }) => (
+      <ColumnFilterHeader
+        label="Type"
+        column={column}
+        kind="select"
+        options={COMPANY_TYPE_OPTIONS}
+      />
+    ),
+    filterFn: multiSelectFilterFn,
     cell: ({ getValue }) => (
       <span className="text-muted-foreground">
         {COMPANY_TYPE_LABELS[getValue()]}
@@ -89,7 +112,15 @@ export const companyColumns = columnHelper.columns([
     ),
   }),
   columnHelper.accessor("status", {
-    header: "Statut",
+    header: ({ column }) => (
+      <ColumnFilterHeader
+        label="Statut"
+        column={column}
+        kind="select"
+        options={COMPANY_STATUS_OPTIONS}
+      />
+    ),
+    filterFn: multiSelectFilterFn,
     cell: ({ getValue }) => {
       const status = getValue();
       return (
@@ -118,7 +149,8 @@ export const companyColumns = columnHelper.columns([
     cell: ({ getValue }) => formatCurrency(getValue()),
   }),
   columnHelper.accessor("city", {
-    header: "Ville",
+    header: ({ column }) => <ColumnFilterHeader label="Ville" column={column} kind="text" />,
+    filterFn: textFilterFn,
     cell: ({ getValue }) => getValue() ?? "—",
   }),
   columnHelper.accessor("siret", {
@@ -157,11 +189,9 @@ export const companyColumns = columnHelper.columns([
   }),
   columnHelper.accessor("updatedAt", {
     header: ({ column }) => (
-      <SortableHeader
-        label="Mis à jour"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-      />
+      <ColumnFilterHeader label="Mis à jour" column={column} kind="dateRange" sortable />
     ),
+    filterFn: dateRangeFilterFn,
     cell: ({ getValue }) => (
       <span className="text-muted-foreground">{formatDate(getValue())}</span>
     ),

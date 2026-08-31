@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Columns3, Download, Search } from "lucide-react";
 import {
   flexRender,
+  type ColumnFiltersState,
   type ColumnVisibilityState,
   type RowSelectionState,
   type SortingState,
@@ -21,6 +22,9 @@ import type { CompanyOption } from "@/lib/queries/companies";
 import type { ContactRow } from "@/lib/queries/contacts";
 import { deleteContactsAction, importContactsAction } from "@/lib/actions/contacts";
 import { downloadCsv } from "@/lib/csv";
+import { CONTACT_ROLE_LABELS } from "@/lib/labels";
+import type { FilterFieldConfig } from "@/lib/table-filters";
+import { ActiveFiltersBar } from "@/components/table/active-filters-bar";
 import { BulkActionsBar } from "@/components/bulk-actions-bar";
 import { BulkAddToListDialog, BulkAddToSequenceDialog } from "@/components/contacts/bulk-add-dialogs";
 import { contactColumns } from "@/components/contacts/columns";
@@ -66,6 +70,20 @@ const CONTACT_IMPORT_FIELDS: ImportField[] = [
   { key: "companyName", label: "Entreprise" },
 ];
 
+const FILTER_FIELDS: FilterFieldConfig[] = [
+  { id: "fullName", label: "Nom complet", kind: "text" },
+  { id: "email", label: "Email", kind: "text" },
+  { id: "phone", label: "Téléphone", kind: "text" },
+  {
+    id: "role",
+    label: "Rôle",
+    kind: "select",
+    options: Object.entries(CONTACT_ROLE_LABELS).map(([value, label]) => ({ value, label })),
+  },
+  { id: "company", label: "Entreprise", kind: "text" },
+  { id: "createdAt", label: "Date d'ajout", kind: "dateRange" },
+];
+
 const COLUMN_LABELS: Record<string, string> = {
   fullName: "Nom complet",
   email: "Email",
@@ -89,6 +107,7 @@ export function ContactsTable({
     {}
   );
   const [globalFilter, setGlobalFilter] = useState("");
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [companyFilter, setCompanyFilter] = useState(ALL_COMPANIES);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [editingContact, setEditingContact] = useState<ContactRow | null>(null);
@@ -103,10 +122,11 @@ export function ContactsTable({
     data: filteredData,
     columns: contactColumns,
     getRowId: (row) => row.id,
-    state: { sorting, columnVisibility, globalFilter, rowSelection },
+    state: { sorting, columnVisibility, globalFilter, columnFilters, rowSelection },
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
     onGlobalFilterChange: setGlobalFilter,
+    onColumnFiltersChange: setColumnFilters,
     onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -202,6 +222,13 @@ export function ContactsTable({
           </DropdownMenu>
         </div>
       </div>
+
+      <ActiveFiltersBar
+        columnFilters={columnFilters}
+        fields={FILTER_FIELDS}
+        onRemove={(columnId) => table.getColumn(columnId)?.setFilterValue(undefined)}
+        onReset={() => setColumnFilters([])}
+      />
 
       <div className="flex-1 overflow-auto">
         <Table>
