@@ -6,6 +6,7 @@ import {
   Building2,
   CheckSquare,
   KanbanSquare,
+  LayoutDashboard,
   List,
   Mail,
   Settings,
@@ -29,6 +30,7 @@ import {
 // wire this up to search companies/contacts/vehicles by name (server
 // action returning matches, debounced as the user types).
 const NAV_COMMANDS = [
+  { label: "Tableau de bord", url: "/dashboard", icon: LayoutDashboard },
   { label: "Entreprises", url: "/companies", icon: Building2 },
   { label: "Contacts", url: "/contacts", icon: Users },
   { label: "Flottes & équipements", url: "/vehicles", icon: Truck },

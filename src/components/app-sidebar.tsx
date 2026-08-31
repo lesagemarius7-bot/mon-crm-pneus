@@ -7,6 +7,7 @@ import {
   CheckSquare,
   Gauge,
   KanbanSquare,
+  LayoutDashboard,
   List,
   LogOut,
   Mail,
@@ -32,6 +33,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const NAV_ITEMS = [
+  { title: "Tableau de bord", url: "/dashboard", icon: LayoutDashboard },
   { title: "Entreprises", url: "/companies", icon: Building2 },
   { title: "Contacts", url: "/contacts", icon: Users },
   { title: "Flottes", url: "/vehicles", icon: Truck },
@@ -54,7 +56,7 @@ export function AppSidebar({ userEmail }: { userEmail?: string }) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link href="/companies" />}>
+            <SidebarMenuButton size="lg" render={<Link href="/dashboard" />}>
               <div className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
                 <Gauge className="size-4" />
               </div>
