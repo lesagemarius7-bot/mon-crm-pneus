@@ -18,6 +18,7 @@ import type { CompanyOption } from "@/lib/queries/companies";
 import type { BoardDeal } from "@/lib/queries/deals";
 import { moveDealStageAction } from "@/lib/actions/deals";
 import { useRealtimeSync, type RealtimeTable } from "@/hooks/use-realtime-sync";
+import { MyItemsToggle } from "@/components/assignee/my-items-toggle";
 import { Button } from "@/components/ui/button";
 import { DealCard } from "@/components/deals/deal-card";
 import { DealDetailSheet } from "@/components/deals/deal-detail-sheet";
@@ -31,10 +32,12 @@ export function KanbanBoard({
   stages,
   deals: initialDeals,
   companies,
+  currentUserId,
 }: {
   stages: PipelineStage[];
   deals: BoardDeal[];
   companies: CompanyOption[];
+  currentUserId: string | null;
 }) {
   const [deals, setDeals] = useState(initialDeals);
   // router.refresh() (useRealtimeSync's default onChange) re-fetches the
@@ -51,6 +54,7 @@ export function KanbanBoard({
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
+  const [mineOnly, setMineOnly] = useState(false);
   const [newDealDialog, setNewDealDialog] = useState<{
     open: boolean;
     stageId?: string;
@@ -64,14 +68,19 @@ export function KanbanBoard({
     })
   );
 
+  const visibleDeals = useMemo(() => {
+    if (!mineOnly || !currentUserId) return deals;
+    return deals.filter((deal) => deal.owner?.id === currentUserId);
+  }, [deals, mineOnly, currentUserId]);
+
   const dealsByStage = useMemo(() => {
     const map = new Map<string, BoardDeal[]>();
     for (const stage of stages) map.set(stage.id, []);
-    for (const deal of deals) {
+    for (const deal of visibleDeals) {
       map.get(deal.stageId)?.push(deal);
     }
     return map;
-  }, [stages, deals]);
+  }, [stages, visibleDeals]);
 
   const activeDeal = activeId ? deals.find((d) => d.id === activeId) : null;
 
@@ -118,7 +127,8 @@ export function KanbanBoard({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 justify-end px-4 pt-3">
+      <div className="flex shrink-0 items-center justify-between px-4 pt-3">
+        <MyItemsToggle mineOnly={mineOnly} onChange={setMineOnly} />
         <Button
           size="sm"
           onClick={() => setNewDealDialog({ open: true, stageId: undefined })}

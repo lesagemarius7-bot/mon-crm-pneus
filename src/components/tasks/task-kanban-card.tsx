@@ -7,6 +7,7 @@ import { Building2, GripVertical, User } from "lucide-react";
 import type { TaskRow } from "@/lib/queries/tasks";
 import { TASK_PRIORITY_LABELS, TASK_TYPE_LABELS, formatDate } from "@/lib/labels";
 import { cn } from "@/lib/utils";
+import { AssigneeBadge } from "@/components/assignee/assignee-badge";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -103,6 +104,10 @@ export function TaskKanbanCard({
           Échéance : {formatDate(task.dueDate)}
         </p>
       )}
+
+      <div className="mt-2 pl-6">
+        <AssigneeBadge assignee={task.owner} showLabel={false} />
+      </div>
     </div>
   );
 }

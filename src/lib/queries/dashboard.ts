@@ -17,7 +17,7 @@ function dateKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-export async function getDashboardData() {
+export async function getDashboardData(assignedToId?: string) {
   const prisma = getPrisma();
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -38,6 +38,7 @@ export async function getDashboardData() {
   ] = await Promise.all([
     prisma.pipelineStage.findMany({ orderBy: { order: "asc" } }),
     prisma.deal.findMany({
+      where: assignedToId ? { ownerId: assignedToId } : undefined,
       select: {
         id: true,
         value: true,
@@ -47,28 +48,49 @@ export async function getDashboardData() {
       },
     }),
     prisma.task.findMany({
-      where: { dueDate: { gte: todayStart, lt: todayEnd }, status: "A_FAIRE" },
+      where: {
+        dueDate: { gte: todayStart, lt: todayEnd },
+        status: "A_FAIRE",
+        ...(assignedToId ? { ownerId: assignedToId } : {}),
+      },
       include: {
         company: { select: { id: true, name: true } },
         contact: { select: { id: true, firstName: true, lastName: true } },
       },
     }),
-    prisma.task.count({ where: { dueDate: { lt: todayStart }, status: "A_FAIRE" } }),
-    prisma.activity.count({ where: { type: "EMAIL" } }),
+    prisma.task.count({
+      where: {
+        dueDate: { lt: todayStart },
+        status: "A_FAIRE",
+        ...(assignedToId ? { ownerId: assignedToId } : {}),
+      },
+    }),
+    prisma.activity.count({
+      where: { type: "EMAIL", ...(assignedToId ? { ownerId: assignedToId } : {}) },
+    }),
     prisma.sequenceEnrollment.count({
       where: { status: "ACTIVE", sequence: { isActive: true } },
     }),
     prisma.deal.findMany({
+      where: assignedToId ? { ownerId: assignedToId } : undefined,
       orderBy: { updatedAt: "desc" },
       take: 5,
       include: { company: { select: { id: true, name: true } }, stage: true },
     }),
     prisma.activity.findMany({
-      where: { type: "EMAIL", createdAt: { gte: trendStart } },
+      where: {
+        type: "EMAIL",
+        createdAt: { gte: trendStart },
+        ...(assignedToId ? { ownerId: assignedToId } : {}),
+      },
       select: { createdAt: true },
     }),
     prisma.task.findMany({
-      where: { status: "TERMINEE", completedAt: { gte: trendStart } },
+      where: {
+        status: "TERMINEE",
+        completedAt: { gte: trendStart },
+        ...(assignedToId ? { ownerId: assignedToId } : {}),
+      },
       select: { completedAt: true },
     }),
   ]);

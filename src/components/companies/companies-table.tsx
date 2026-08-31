@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Columns3, Download, Search } from "lucide-react";
 import {
@@ -19,14 +19,17 @@ import {
 import { toast } from "sonner";
 
 import type { CompanyRow } from "@/lib/queries/companies";
+import type { ProfileOption } from "@/lib/queries/profiles";
 import { deleteCompaniesAction, importCompaniesAction } from "@/lib/actions/companies";
 import { downloadCsv } from "@/lib/csv";
 import { COMPANY_STATUS_LABELS, COMPANY_TYPE_LABELS } from "@/lib/labels";
 import type { FilterFieldConfig } from "@/lib/table-filters";
 import { useRealtimeSync, type RealtimeTable } from "@/hooks/use-realtime-sync";
+import { assigneeLabel } from "@/components/assignee/assignee-badge";
+import { MyItemsToggle } from "@/components/assignee/my-items-toggle";
 import { ActiveFiltersBar } from "@/components/table/active-filters-bar";
 import { BulkActionsBar } from "@/components/bulk-actions-bar";
-import { companyColumns } from "@/components/companies/columns";
+import { getCompanyColumns } from "@/components/companies/columns";
 import { CreateListFromCompaniesDialog } from "@/components/companies/create-list-from-companies-dialog";
 import { COMPANY_EXPORT_COLUMNS, toCompanyCsvRow } from "@/components/companies/company-csv";
 import { CompanyDetailSheet } from "@/components/companies/company-detail-sheet";
@@ -67,23 +70,26 @@ const COMPANY_IMPORT_FIELDS: ImportField[] = [
   { key: "estimatedRevenue", label: "CA estimé" },
 ];
 
-const FILTER_FIELDS: FilterFieldConfig[] = [
-  { id: "name", label: "Entreprise", kind: "text" },
-  {
-    id: "type",
-    label: "Type",
-    kind: "select",
-    options: Object.entries(COMPANY_TYPE_LABELS).map(([value, label]) => ({ value, label })),
-  },
-  {
-    id: "status",
-    label: "Statut",
-    kind: "select",
-    options: Object.entries(COMPANY_STATUS_LABELS).map(([value, label]) => ({ value, label })),
-  },
-  { id: "city", label: "Ville", kind: "text" },
-  { id: "updatedAt", label: "Mis à jour", kind: "dateRange" },
-];
+function getFilterFields(assigneeOptions: FilterFieldConfig["options"]): FilterFieldConfig[] {
+  return [
+    { id: "name", label: "Entreprise", kind: "text" },
+    {
+      id: "type",
+      label: "Type",
+      kind: "select",
+      options: Object.entries(COMPANY_TYPE_LABELS).map(([value, label]) => ({ value, label })),
+    },
+    {
+      id: "status",
+      label: "Statut",
+      kind: "select",
+      options: Object.entries(COMPANY_STATUS_LABELS).map(([value, label]) => ({ value, label })),
+    },
+    { id: "city", label: "Ville", kind: "text" },
+    { id: "assignedTo", label: "Assigné à", kind: "select", options: assigneeOptions },
+    { id: "updatedAt", label: "Mis à jour", kind: "dateRange" },
+  ];
+}
 
 const COLUMN_LABELS: Record<string, string> = {
   name: "Entreprise",
@@ -96,17 +102,22 @@ const COLUMN_LABELS: Record<string, string> = {
   phone: "Téléphone",
   dealsCount: "Deals",
   vehiclesCount: "Véhicules",
+  assignedTo: "Assigné à",
   updatedAt: "Mis à jour",
 };
 
 export function CompaniesTable({
   data,
   initialSelectedId,
+  profiles,
+  currentUserId,
 }: {
   data: CompanyRow[];
   /** Opens that company's drawer on mount — e.g. a "?id=..." link from the
    * Contacts/Vehicles/Deals views pointing at their linked company. */
   initialSelectedId?: string | null;
+  profiles: ProfileOption[];
+  currentUserId: string | null;
 }) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: "updatedAt", desc: true },
@@ -120,13 +131,26 @@ export function CompaniesTable({
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(
     () => initialSelectedId ?? null
   );
+  const [mineOnly, setMineOnly] = useState(false);
   const router = useRouter();
 
   useRealtimeSync(REALTIME_TABLES);
 
+  const assigneeOptions = useMemo(
+    () => profiles.map((p) => ({ value: p.id, label: assigneeLabel(p) })),
+    [profiles]
+  );
+  const filterFields = useMemo(() => getFilterFields(assigneeOptions), [assigneeOptions]);
+  const columns = useMemo(() => getCompanyColumns(assigneeOptions), [assigneeOptions]);
+
+  const filteredData = useMemo(() => {
+    if (!mineOnly || !currentUserId) return data;
+    return data.filter((company) => company.assignedTo?.id === currentUserId);
+  }, [data, mineOnly, currentUserId]);
+
   const table = useLegacyTable({
-    data,
-    columns: companyColumns,
+    data: filteredData,
+    columns,
     getRowId: (row) => row.id,
     state: { sorting, columnVisibility, globalFilter, columnFilters, rowSelection },
     onSortingChange: setSorting,
@@ -176,8 +200,9 @@ export function CompaniesTable({
           />
         </div>
         <span className="text-sm text-muted-foreground">
-          {table.getRowModel().rows.length} / {data.length}
+          {table.getRowModel().rows.length} / {filteredData.length}
         </span>
+        <MyItemsToggle mineOnly={mineOnly} onChange={setMineOnly} />
         <Button variant="outline" size="sm" onClick={handleExport}>
           <Download className="size-3.5" />
           Exporter (CSV)
@@ -215,7 +240,7 @@ export function CompaniesTable({
 
       <ActiveFiltersBar
         columnFilters={columnFilters}
-        fields={FILTER_FIELDS}
+        fields={filterFields}
         onRemove={(columnId) => table.getColumn(columnId)?.setFilterValue(undefined)}
         onReset={() => setColumnFilters([])}
       />
@@ -242,7 +267,7 @@ export function CompaniesTable({
             {table.getRowModel().rows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={companyColumns.length}
+                  colSpan={columns.length}
                   className="h-32 text-center text-muted-foreground"
                 >
                   Aucune entreprise ne correspond à ce filtre.

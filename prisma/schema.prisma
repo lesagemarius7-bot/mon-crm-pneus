@@ -32,10 +32,12 @@ model Profile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  ownedDeals    Deal[]     @relation("DealOwner")
-  authoredNotes Note[]     @relation("NoteAuthor")
-  activities    Activity[] @relation("ActivityOwner")
-  ownedTasks    Task[]     @relation("TaskOwner")
+  ownedDeals        Deal[]     @relation("DealOwner")
+  authoredNotes     Note[]     @relation("NoteAuthor")
+  activities        Activity[] @relation("ActivityOwner")
+  ownedTasks        Task[]     @relation("TaskOwner")
+  assignedCompanies Company[]  @relation("CompanyAssignee")
+  assignedContacts  Contact[]  @relation("ContactAssignee")
 
   @@map("profiles")
 }
@@ -142,6 +144,7 @@ model Company {
   phone            String?
   website          String?
   linkedin         String?
+  assignedToId     String?       @db.Uuid
   /// Attributs personnalisés (clé = CustomFieldDefinition.key)
   customFields     Json          @default("{}")
   createdAt        DateTime      @default(now())
@@ -153,9 +156,11 @@ model Company {
   notes      Note[]
   activities Activity[]
   tasks      Task[]
+  assignedTo Profile?   @relation("CompanyAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([type])
+  @@index([assignedToId])
   @@map("companies")
 }
 
@@ -171,6 +176,7 @@ model Contact {
   email        String?
   phone        String?
   companyId    String?     @db.Uuid
+  assignedToId String?     @db.Uuid
   customFields Json        @default("{}")
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
@@ -182,8 +188,10 @@ model Contact {
   tasks       Task[]
   enrollments SequenceEnrollment[]
   listEntries ContactListMembership[]
+  assignedTo  Profile?                @relation("ContactAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   @@index([companyId])
+  @@index([assignedToId])
   @@map("contacts")
 }
 

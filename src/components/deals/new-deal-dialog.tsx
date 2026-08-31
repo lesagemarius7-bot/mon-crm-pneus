@@ -13,6 +13,7 @@ import type { PipelineStage } from "@/generated/prisma/client";
 import { createDealAction } from "@/lib/actions/deals";
 import { formatDate } from "@/lib/labels";
 import { cn } from "@/lib/utils";
+import { AssigneeSelect } from "@/components/assignee/assignee-select";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -53,11 +54,16 @@ const dealFormSchema = z.object({
     ),
   proposedBrand: z.string().trim(),
   expectedCloseDate: z.date().optional(),
+  ownerId: z.string().nullable(),
 });
 
 type DealFormValues = z.infer<typeof dealFormSchema>;
 
-function emptyValues(stageId: string, companyId = ""): DealFormValues {
+function emptyValues(
+  stageId: string,
+  companyId = "",
+  ownerId: string | null = null
+): DealFormValues {
   return {
     name: "",
     companyId,
@@ -66,6 +72,7 @@ function emptyValues(stageId: string, companyId = ""): DealFormValues {
     value: "",
     proposedBrand: "",
     expectedCloseDate: undefined,
+    ownerId,
   };
 }
 
@@ -125,6 +132,7 @@ export function NewDealDialog({
         value: values.value === "" ? null : Number(values.value),
         proposedBrand: values.proposedBrand || null,
         expectedCloseDate: values.expectedCloseDate ?? null,
+        ownerId: values.ownerId,
       });
       onCreated(deal);
       toast.success(`Deal « ${deal.name} » créé.`);
@@ -256,6 +264,17 @@ export function NewDealDialog({
                 {...form.register("proposedBrand")}
               />
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Propriétaire / Assigné à</Label>
+            <Controller
+              control={form.control}
+              name="ownerId"
+              render={({ field }) => (
+                <AssigneeSelect value={field.value} onChange={field.onChange} />
+              )}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

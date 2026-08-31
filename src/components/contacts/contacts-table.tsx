@@ -20,14 +20,17 @@ import { toast } from "sonner";
 
 import type { CompanyOption } from "@/lib/queries/companies";
 import type { ContactRow } from "@/lib/queries/contacts";
+import type { ProfileOption } from "@/lib/queries/profiles";
 import { deleteContactsAction, importContactsAction } from "@/lib/actions/contacts";
 import { downloadCsv } from "@/lib/csv";
 import { CONTACT_ROLE_LABELS } from "@/lib/labels";
 import type { FilterFieldConfig } from "@/lib/table-filters";
+import { assigneeLabel } from "@/components/assignee/assignee-badge";
+import { MyItemsToggle } from "@/components/assignee/my-items-toggle";
 import { ActiveFiltersBar } from "@/components/table/active-filters-bar";
 import { BulkActionsBar } from "@/components/bulk-actions-bar";
 import { BulkAddToListDialog, BulkAddToSequenceDialog } from "@/components/contacts/bulk-add-dialogs";
-import { contactColumns } from "@/components/contacts/columns";
+import { getContactColumns } from "@/components/contacts/columns";
 import { CONTACT_EXPORT_COLUMNS, toContactCsvRow } from "@/components/contacts/contact-csv";
 import { ContactFormDialog } from "@/components/contacts/contact-form-dialog";
 import { Button } from "@/components/ui/button";
@@ -70,19 +73,22 @@ const CONTACT_IMPORT_FIELDS: ImportField[] = [
   { key: "companyName", label: "Entreprise" },
 ];
 
-const FILTER_FIELDS: FilterFieldConfig[] = [
-  { id: "fullName", label: "Nom complet", kind: "text" },
-  { id: "email", label: "Email", kind: "text" },
-  { id: "phone", label: "Téléphone", kind: "text" },
-  {
-    id: "role",
-    label: "Rôle",
-    kind: "select",
-    options: Object.entries(CONTACT_ROLE_LABELS).map(([value, label]) => ({ value, label })),
-  },
-  { id: "company", label: "Entreprise", kind: "text" },
-  { id: "createdAt", label: "Date d'ajout", kind: "dateRange" },
-];
+function getFilterFields(assigneeOptions: FilterFieldConfig["options"]): FilterFieldConfig[] {
+  return [
+    { id: "fullName", label: "Nom complet", kind: "text" },
+    { id: "email", label: "Email", kind: "text" },
+    { id: "phone", label: "Téléphone", kind: "text" },
+    {
+      id: "role",
+      label: "Rôle",
+      kind: "select",
+      options: Object.entries(CONTACT_ROLE_LABELS).map(([value, label]) => ({ value, label })),
+    },
+    { id: "company", label: "Entreprise", kind: "text" },
+    { id: "assignedTo", label: "Assigné à", kind: "select", options: assigneeOptions },
+    { id: "createdAt", label: "Date d'ajout", kind: "dateRange" },
+  ];
+}
 
 const COLUMN_LABELS: Record<string, string> = {
   fullName: "Nom complet",
@@ -90,15 +96,20 @@ const COLUMN_LABELS: Record<string, string> = {
   phone: "Téléphone",
   role: "Rôle",
   company: "Entreprise",
+  assignedTo: "Assigné à",
   createdAt: "Date d'ajout",
 };
 
 export function ContactsTable({
   data,
   companies,
+  profiles,
+  currentUserId,
 }: {
   data: ContactRow[];
   companies: CompanyOption[];
+  profiles: ProfileOption[];
+  currentUserId: string | null;
 }) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: "createdAt", desc: true },
@@ -111,16 +122,30 @@ export function ContactsTable({
   const [companyFilter, setCompanyFilter] = useState(ALL_COMPANIES);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [editingContact, setEditingContact] = useState<ContactRow | null>(null);
+  const [mineOnly, setMineOnly] = useState(false);
   const router = useRouter();
 
+  const assigneeOptions = useMemo(
+    () => profiles.map((p) => ({ value: p.id, label: assigneeLabel(p) })),
+    [profiles]
+  );
+  const filterFields = useMemo(() => getFilterFields(assigneeOptions), [assigneeOptions]);
+  const columns = useMemo(() => getContactColumns(assigneeOptions), [assigneeOptions]);
+
   const filteredData = useMemo(() => {
-    if (companyFilter === ALL_COMPANIES) return data;
-    return data.filter((contact) => contact.companyId === companyFilter);
-  }, [data, companyFilter]);
+    let rows = data;
+    if (companyFilter !== ALL_COMPANIES) {
+      rows = rows.filter((contact) => contact.companyId === companyFilter);
+    }
+    if (mineOnly && currentUserId) {
+      rows = rows.filter((contact) => contact.assignedTo?.id === currentUserId);
+    }
+    return rows;
+  }, [data, companyFilter, mineOnly, currentUserId]);
 
   const table = useLegacyTable({
     data: filteredData,
-    columns: contactColumns,
+    columns,
     getRowId: (row) => row.id,
     state: { sorting, columnVisibility, globalFilter, columnFilters, rowSelection },
     onSortingChange: setSorting,
@@ -185,8 +210,10 @@ export function ContactsTable({
         </Select>
 
         <span className="text-sm text-muted-foreground">
-          {table.getRowModel().rows.length} / {data.length}
+          {table.getRowModel().rows.length} / {filteredData.length}
         </span>
+
+        <MyItemsToggle mineOnly={mineOnly} onChange={setMineOnly} />
 
         <Button variant="outline" size="sm" onClick={handleExport}>
           <Download className="size-3.5" />
@@ -225,7 +252,7 @@ export function ContactsTable({
 
       <ActiveFiltersBar
         columnFilters={columnFilters}
-        fields={FILTER_FIELDS}
+        fields={filterFields}
         onRemove={(columnId) => table.getColumn(columnId)?.setFilterValue(undefined)}
         onReset={() => setColumnFilters([])}
       />
@@ -252,7 +279,7 @@ export function ContactsTable({
             {table.getRowModel().rows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={contactColumns.length}
+                  colSpan={columns.length}
                   className="h-32 text-center text-muted-foreground"
                 >
                   Aucun contact ne correspond à ce filtre.

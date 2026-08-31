@@ -21,6 +21,7 @@ const companySchema = z.object({
   status: z.enum(CompanyStatus),
   fleetSize: z.number().int().min(0).nullable().optional(),
   estimatedRevenue: z.number().min(0).nullable().optional(),
+  assignedToId: z.string().min(1).nullable().optional(),
 });
 
 export type CompanyFormInput = z.infer<typeof companySchema>;
@@ -37,6 +38,7 @@ export async function createCompanyAction(input: CompanyFormInput) {
       status: parsed.status,
       fleetSize: parsed.fleetSize ?? null,
       estimatedRevenue: parsed.estimatedRevenue ?? null,
+      assignedToId: parsed.assignedToId || null,
     },
   });
 
@@ -57,6 +59,7 @@ export async function updateCompanyAction(id: string, input: CompanyFormInput) {
       status: parsed.status,
       fleetSize: parsed.fleetSize ?? null,
       estimatedRevenue: parsed.estimatedRevenue ?? null,
+      assignedToId: parsed.assignedToId || null,
     },
   });
 
@@ -75,6 +78,7 @@ const companyDetailsSchema = z.object({
   siret: z.string().trim().nullable().optional(),
   website: z.string().trim().nullable().optional(),
   linkedin: z.string().trim().nullable().optional(),
+  assignedToId: z.string().min(1).nullable().optional(),
 });
 
 export type CompanyDetailsInput = z.infer<typeof companyDetailsSchema>;

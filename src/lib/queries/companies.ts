@@ -17,6 +17,7 @@ export async function listCompanies() {
       _count: {
         select: { contacts: true, vehicles: true, deals: true },
       },
+      assignedTo: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
     },
   });
 
@@ -50,6 +51,7 @@ export async function getCompanyDetail(id: string) {
         orderBy: { createdAt: "desc" },
         take: 20,
       },
+      assignedTo: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
     },
   });
 

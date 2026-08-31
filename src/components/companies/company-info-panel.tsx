@@ -8,6 +8,7 @@ import type { PipelineStage } from "@/generated/prisma/client";
 import type { CompanyDetail } from "@/lib/queries/companies";
 import type { CompanyDetailsInput } from "@/lib/actions/companies";
 import { COMPANY_STATUS_LABELS, COMPANY_TYPE_LABELS } from "@/lib/labels";
+import { AssigneeSelect } from "@/components/assignee/assignee-select";
 import { CompanyDealsPanel } from "@/components/companies/company-deals-panel";
 import { CustomFieldsEditor } from "@/components/custom-fields/custom-fields-editor";
 import { Input } from "@/components/ui/input";
@@ -172,6 +173,16 @@ export function CompanyInfoPanel({
       />
 
       <Separator />
+
+      <div className="flex flex-col gap-1">
+        <FieldLabel label="Propriétaire / Assigné à" saving={savingField === "assignedToId"} />
+        <AssigneeSelect
+          value={detail.assignedTo?.id ?? null}
+          disabled={savingField === "assignedToId"}
+          onChange={(value) => commit("assignedToId", { assignedToId: value })}
+          className="h-8"
+        />
+      </div>
 
       <div className="flex flex-col gap-1">
         <FieldLabel label="Type" saving={savingField === "type"} />

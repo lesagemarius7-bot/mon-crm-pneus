@@ -21,6 +21,7 @@ const contactSchema = z.object({
   phone: z.string().trim().nullable().optional(),
   role: z.enum(ContactRole),
   companyId: z.string().min(1, "Entreprise requise."),
+  assignedToId: z.string().min(1).nullable().optional(),
 });
 
 export type ContactFormInput = z.infer<typeof contactSchema>;
@@ -37,6 +38,7 @@ export async function createContactAction(input: ContactFormInput) {
       phone: parsed.phone || null,
       role: parsed.role,
       companyId: parsed.companyId,
+      assignedToId: parsed.assignedToId || null,
     },
   });
 
@@ -58,6 +60,7 @@ export async function updateContactAction(id: string, input: ContactFormInput) {
       phone: parsed.phone || null,
       role: parsed.role,
       companyId: parsed.companyId,
+      assignedToId: parsed.assignedToId || null,
     },
   });
 

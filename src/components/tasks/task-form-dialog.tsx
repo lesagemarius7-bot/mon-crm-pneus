@@ -12,6 +12,7 @@ import type { CompanyOption } from "@/lib/queries/companies";
 import type { DealOption } from "@/lib/queries/deals";
 import { createTaskAction, type CreateTaskInput } from "@/lib/actions/tasks";
 import { TASK_PRIORITY_LABELS, TASK_TYPE_LABELS } from "@/lib/labels";
+import { AssigneeSelect } from "@/components/assignee/assignee-select";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -44,6 +45,7 @@ const taskFormSchema = z.object({
   companyId: z.string(),
   contactId: z.string(),
   dealId: z.string(),
+  ownerId: z.string().nullable(),
 });
 
 type TaskFormValues = z.infer<typeof taskFormSchema>;
@@ -87,6 +89,7 @@ function defaultValues(
     companyId: fixedCompanyId ?? NO_LINK,
     contactId: fixedContactId ?? NO_LINK,
     dealId: fixedDealId ?? NO_LINK,
+    ownerId: null,
   };
 }
 
@@ -140,6 +143,7 @@ export function TaskFormDialog({
         companyId: fixedCompanyId ?? (values.companyId === NO_LINK ? null : values.companyId),
         contactId: fixedContactId ?? (values.contactId === NO_LINK ? null : values.contactId),
         dealId: fixedDealId ?? (values.dealId === NO_LINK ? null : values.dealId),
+        ownerId: values.ownerId ?? undefined,
       });
       toast.success(`Tâche « ${values.subject} » créée.`);
       router.refresh();
@@ -359,6 +363,21 @@ export function TaskFormDialog({
               />
             </div>
           )}
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Propriétaire / Assigné à</Label>
+            <Controller
+              control={form.control}
+              name="ownerId"
+              render={({ field }) => (
+                <AssigneeSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder="Moi (par défaut)"
+                />
+              )}
+            />
+          </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

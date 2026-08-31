@@ -21,6 +21,7 @@ const createTaskSchema = z.object({
   companyId: z.string().min(1).nullable().optional(),
   contactId: z.string().min(1).nullable().optional(),
   dealId: z.string().min(1).nullable().optional(),
+  ownerId: z.string().min(1).nullable().optional(),
 });
 
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
@@ -28,7 +29,8 @@ export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export async function createTaskAction(input: CreateTaskInput) {
   const parsed = createTaskSchema.parse(input);
   const prisma = getPrisma();
-  const ownerId = await getCurrentUserId();
+  const ownerId =
+    parsed.ownerId !== undefined ? parsed.ownerId : await getCurrentUserId();
 
   const task = await prisma.task.create({
     data: {
@@ -40,7 +42,7 @@ export async function createTaskAction(input: CreateTaskInput) {
       companyId: parsed.companyId || null,
       contactId: parsed.contactId || null,
       dealId: parsed.dealId || null,
-      ownerId: ownerId ?? undefined,
+      ownerId: ownerId || null,
     },
   });
 
@@ -99,6 +101,19 @@ export async function updateTaskAction(id: string, input: UpdateTaskInput) {
         : {}),
     },
   });
+
+  revalidatePath("/tasks");
+  if (task.companyId) revalidatePath("/companies");
+  if (task.contactId) revalidatePath("/contacts");
+  if (task.dealId) revalidatePath("/deals");
+  return task.id;
+}
+
+/** Reassigns a task's owner — used by the "Propriétaire / Assigné à"
+ * selector in the task table/Kanban card. */
+export async function updateTaskOwnerAction(id: string, ownerId: string | null) {
+  const prisma = getPrisma();
+  const task = await prisma.task.update({ where: { id }, data: { ownerId } });
 
   revalidatePath("/tasks");
   if (task.companyId) revalidatePath("/companies");

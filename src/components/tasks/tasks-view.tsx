@@ -18,6 +18,8 @@ import {
   formatDate,
 } from "@/lib/labels";
 import { cn } from "@/lib/utils";
+import { AssigneeBadge } from "@/components/assignee/assignee-badge";
+import { MyItemsToggle } from "@/components/assignee/my-items-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -87,15 +89,20 @@ function dueDateClassName(task: TaskRow): string {
 export function TasksView({
   companies,
   deals,
+  currentUserId,
 }: {
   companies: CompanyOption[];
   deals: DealOption[];
+  currentUserId: string | null;
 }) {
   const [view, setView] = useState<ViewMode>("table");
   const [dueFilter, setDueFilter] = useState<DueFilter>("ALL");
   const [statusFilter, setStatusFilter] = useState(ALL_STATUSES);
   const [typeFilter, setTypeFilter] = useState(ALL_TYPES);
+  const [mineOnly, setMineOnly] = useState(false);
   const [tasks, setTasks] = useState<TaskRow[] | null>(null);
+
+  const assignedToId = mineOnly && currentUserId ? currentUserId : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -103,19 +110,21 @@ export function TasksView({
       dueFilter,
       status: statusFilter === ALL_STATUSES ? undefined : (statusFilter as TaskRow["status"]),
       type: typeFilter === ALL_TYPES ? undefined : (typeFilter as TaskRow["type"]),
+      assignedToId,
     }).then((result) => {
       if (!cancelled) setTasks(result);
     });
     return () => {
       cancelled = true;
     };
-  }, [dueFilter, statusFilter, typeFilter]);
+  }, [dueFilter, statusFilter, typeFilter, assignedToId]);
 
   function refresh() {
     listTasksAction({
       dueFilter,
       status: statusFilter === ALL_STATUSES ? undefined : (statusFilter as TaskRow["status"]),
       type: typeFilter === ALL_TYPES ? undefined : (typeFilter as TaskRow["type"]),
+      assignedToId,
     }).then(setTasks);
   }
 
@@ -226,6 +235,8 @@ export function TasksView({
             </span>
           )}
 
+          <MyItemsToggle mineOnly={mineOnly} onChange={setMineOnly} />
+
           <div className="ml-auto">
             <TaskFormDialog companies={companies} deals={deals} onCreated={refresh} />
           </div>
@@ -235,7 +246,10 @@ export function TasksView({
       <div className="min-h-0 flex-1 overflow-auto">
         {view === "kanban" ? (
           <KanbanErrorBoundary>
-            <TaskKanbanBoard typeFilter={typeFilter === ALL_TYPES ? undefined : typeFilter} />
+            <TaskKanbanBoard
+              typeFilter={typeFilter === ALL_TYPES ? undefined : typeFilter}
+              assignedToId={assignedToId}
+            />
           </KanbanErrorBoundary>
         ) : tasks === null ? (
           <div className="flex h-full items-center justify-center">
@@ -251,12 +265,13 @@ export function TasksView({
                 <TableHead>Échéance</TableHead>
                 <TableHead>Priorité</TableHead>
                 <TableHead>Entreprise / Contact</TableHead>
+                <TableHead>Assigné à</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {tasks.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                     Aucune tâche ne correspond à ces filtres.
                   </TableCell>
                 </TableRow>
@@ -326,6 +341,9 @@ export function TasksView({
                           <span className="text-muted-foreground">—</span>
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <AssigneeBadge assignee={task.owner} />
                     </TableCell>
                   </TableRow>
                 ))

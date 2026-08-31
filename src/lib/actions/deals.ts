@@ -25,6 +25,7 @@ const createDealSchema = z.object({
   value: z.number().min(0).nullable().optional(),
   proposedBrand: z.string().trim().nullable().optional(),
   expectedCloseDate: z.coerce.date().nullable().optional(),
+  ownerId: z.string().min(1).nullable().optional(),
 });
 
 export type CreateDealInput = z.infer<typeof createDealSchema>;
@@ -48,10 +49,12 @@ export async function createDealAction(input: CreateDealInput) {
       value: parsed.value ?? null,
       proposedBrand: parsed.proposedBrand || null,
       expectedCloseDate: parsed.expectedCloseDate ?? null,
+      ownerId: parsed.ownerId || null,
     },
     include: {
       company: { select: { id: true, name: true } },
       contact: { select: { id: true, firstName: true, lastName: true } },
+      owner: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
     },
   });
 
@@ -120,4 +123,13 @@ export async function moveDealStageAction(dealId: string, stageId: string) {
   revalidatePath("/deals");
   revalidatePath("/tasks");
   revalidatePath("/companies");
+}
+
+/** Reassigns a deal's owner — used by the "Propriétaire / Assigné à"
+ * selector in the Kanban card and detail sheet. */
+export async function updateDealOwnerAction(dealId: string, ownerId: string | null) {
+  const prisma = getPrisma();
+  await prisma.deal.update({ where: { id: dealId }, data: { ownerId } });
+
+  revalidatePath("/deals");
 }

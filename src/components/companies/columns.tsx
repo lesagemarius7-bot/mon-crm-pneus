@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowUpDown, Building2 } from "lucide-react";
 
 import type { CompanyRow } from "@/lib/queries/companies";
+import type { SelectOption } from "@/lib/table-filters";
 import { dateRangeFilterFn, multiSelectFilterFn, textFilterFn } from "@/lib/table-filters";
 import {
   COMPANY_STATUS_BADGE,
@@ -12,6 +13,7 @@ import {
   formatCurrency,
   formatDate,
 } from "@/lib/labels";
+import { AssigneeBadge } from "@/components/assignee/assignee-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -49,7 +51,8 @@ function SortableHeader({
   );
 }
 
-export const companyColumns = columnHelper.columns([
+export function getCompanyColumns(assigneeOptions: SelectOption[]) {
+  return columnHelper.columns([
   columnHelper.display({
     id: "select",
     header: ({ table }) => (
@@ -187,6 +190,19 @@ export const companyColumns = columnHelper.columns([
     header: "Véhicules",
     cell: ({ getValue }) => getValue() || "—",
   }),
+  columnHelper.accessor((row) => row.assignedTo?.id ?? "", {
+    id: "assignedTo",
+    header: ({ column }) => (
+      <ColumnFilterHeader
+        label="Assigné à"
+        column={column}
+        kind="select"
+        options={assigneeOptions}
+      />
+    ),
+    filterFn: multiSelectFilterFn,
+    cell: ({ row }) => <AssigneeBadge assignee={row.original.assignedTo} />,
+  }),
   columnHelper.accessor("updatedAt", {
     header: ({ column }) => (
       <ColumnFilterHeader label="Mis à jour" column={column} kind="dateRange" sortable />
@@ -196,4 +212,5 @@ export const companyColumns = columnHelper.columns([
       <span className="text-muted-foreground">{formatDate(getValue())}</span>
     ),
   }),
-]);
+  ]);
+}

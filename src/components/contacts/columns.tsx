@@ -4,8 +4,10 @@ import Link from "next/link";
 import { User } from "lucide-react";
 
 import type { ContactRow } from "@/lib/queries/contacts";
+import type { SelectOption } from "@/lib/table-filters";
 import { CONTACT_ROLE_LABELS, formatDate } from "@/lib/labels";
 import { dateRangeFilterFn, multiSelectFilterFn, textFilterFn } from "@/lib/table-filters";
+import { AssigneeBadge } from "@/components/assignee/assignee-badge";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ColumnFilterHeader } from "@/components/table/column-filter-header";
@@ -18,7 +20,8 @@ const CONTACT_ROLE_OPTIONS = Object.entries(CONTACT_ROLE_LABELS).map(([value, la
   label,
 }));
 
-export const contactColumns = columnHelper.columns([
+export function getContactColumns(assigneeOptions: SelectOption[]) {
+  return columnHelper.columns([
   columnHelper.display({
     id: "select",
     header: ({ table }) => (
@@ -97,6 +100,19 @@ export const contactColumns = columnHelper.columns([
         <span className="text-muted-foreground">—</span>
       ),
   }),
+  columnHelper.accessor((row) => row.assignedTo?.id ?? "", {
+    id: "assignedTo",
+    header: ({ column }) => (
+      <ColumnFilterHeader
+        label="Assigné à"
+        column={column}
+        kind="select"
+        options={assigneeOptions}
+      />
+    ),
+    filterFn: multiSelectFilterFn,
+    cell: ({ row }) => <AssigneeBadge assignee={row.original.assignedTo} />,
+  }),
   columnHelper.accessor("createdAt", {
     header: ({ column }) => (
       <ColumnFilterHeader label="Date d'ajout" column={column} kind="dateRange" sortable />
@@ -106,4 +122,5 @@ export const contactColumns = columnHelper.columns([
       <span className="text-muted-foreground">{formatDate(getValue())}</span>
     ),
   }),
-]);
+  ]);
+}

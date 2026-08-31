@@ -1,15 +1,19 @@
 import { Plus } from "lucide-react";
 
+import { getCurrentUserId } from "@/lib/auth";
 import { listCompanyOptions } from "@/lib/queries/companies";
 import { listContacts } from "@/lib/queries/contacts";
+import { listProfileOptions } from "@/lib/queries/profiles";
 import { ContactFormDialog } from "@/components/contacts/contact-form-dialog";
 import { ContactsTable } from "@/components/contacts/contacts-table";
 import { Button } from "@/components/ui/button";
 
 export default async function ContactsPage() {
-  const [contacts, companies] = await Promise.all([
+  const [contacts, companies, profiles, currentUserId] = await Promise.all([
     listContacts(),
     listCompanyOptions(),
+    listProfileOptions(),
+    getCurrentUserId(),
   ]);
 
   return (
@@ -33,7 +37,12 @@ export default async function ContactsPage() {
         />
       </div>
       <div className="min-h-0 flex-1">
-        <ContactsTable data={contacts} companies={companies} />
+        <ContactsTable
+          data={contacts}
+          companies={companies}
+          profiles={profiles}
+          currentUserId={currentUserId}
+        />
       </div>
     </div>
   );

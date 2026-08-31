@@ -12,6 +12,7 @@ export async function listContacts() {
     orderBy: { createdAt: "desc" },
     include: {
       company: { select: { id: true, name: true } },
+      assignedTo: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
     },
   });
 }

@@ -1,11 +1,17 @@
+import { getCurrentUserId } from "@/lib/auth";
 import { listCompanies } from "@/lib/queries/companies";
+import { listProfileOptions } from "@/lib/queries/profiles";
 import { CompaniesTable } from "@/components/companies/companies-table";
 import { CompanyFormDialog } from "@/components/companies/company-form-dialog";
 
 export default async function CompaniesPage({
   searchParams,
 }: PageProps<"/companies">) {
-  const companies = await listCompanies();
+  const [companies, profiles, currentUserId] = await Promise.all([
+    listCompanies(),
+    listProfileOptions(),
+    getCurrentUserId(),
+  ]);
   const { id } = await searchParams;
   const initialSelectedId = typeof id === "string" ? id : null;
 
@@ -21,7 +27,12 @@ export default async function CompaniesPage({
         <CompanyFormDialog mode="create" />
       </div>
       <div className="min-h-0 flex-1">
-        <CompaniesTable data={companies} initialSelectedId={initialSelectedId} />
+        <CompaniesTable
+          data={companies}
+          initialSelectedId={initialSelectedId}
+          profiles={profiles}
+          currentUserId={currentUserId}
+        />
       </div>
     </div>
   );

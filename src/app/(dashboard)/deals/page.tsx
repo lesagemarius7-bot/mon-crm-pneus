@@ -1,13 +1,15 @@
+import { getCurrentUserId } from "@/lib/auth";
 import { listCompanyOptions } from "@/lib/queries/companies";
 import { listDealsForBoard, listPipelineStages } from "@/lib/queries/deals";
 import { formatCurrency } from "@/lib/labels";
 import { KanbanBoard } from "@/components/deals/kanban-board";
 
 export default async function DealsPage() {
-  const [stages, deals, companies] = await Promise.all([
+  const [stages, deals, companies, currentUserId] = await Promise.all([
     listPipelineStages(),
     listDealsForBoard(),
     listCompanyOptions(),
+    getCurrentUserId(),
   ]);
 
   const openTotal = deals
@@ -29,7 +31,12 @@ export default async function DealsPage() {
         </div>
       </div>
       <div className="min-h-0 flex-1">
-        <KanbanBoard stages={stages} deals={deals} companies={companies} />
+        <KanbanBoard
+          stages={stages}
+          deals={deals}
+          companies={companies}
+          currentUserId={currentUserId}
+        />
       </div>
     </div>
   );

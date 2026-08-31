@@ -6,6 +6,7 @@ import { Building2, CalendarDays, GripVertical, Tag } from "lucide-react";
 
 import type { BoardDeal } from "@/lib/queries/deals";
 import { formatCurrency, formatDate } from "@/lib/labels";
+import { AssigneeBadge } from "@/components/assignee/assignee-badge";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -70,6 +71,7 @@ export function DealCard({
         <Badge variant="outline" className="font-mono">
           {formatCurrency(deal.value)}
         </Badge>
+        <AssigneeBadge assignee={deal.owner} showLabel={false} />
       </div>
     </div>
   );

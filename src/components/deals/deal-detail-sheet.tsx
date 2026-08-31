@@ -5,10 +5,11 @@ import Link from "next/link";
 import { Building2, CalendarDays, Loader2, Tag, User } from "lucide-react";
 
 import type { DealDetail } from "@/lib/queries/deals";
-import { getDealDetailAction } from "@/lib/actions/deals";
+import { getDealDetailAction, updateDealOwnerAction } from "@/lib/actions/deals";
 import { buildTimeline } from "@/lib/activity-timeline";
 import { formatCurrency, formatDate } from "@/lib/labels";
 import { ActivityTimeline } from "@/components/activity/activity-timeline";
+import { AssigneeSelect } from "@/components/assignee/assignee-select";
 import { CustomFieldsEditor } from "@/components/custom-fields/custom-fields-editor";
 import { EntityTasksSection } from "@/components/tasks/entity-tasks-section";
 import { Badge } from "@/components/ui/badge";
@@ -94,11 +95,22 @@ export function DealDetailSheet({
                     Clôture estimée : {formatDate(detail.expectedCloseDate)}
                   </div>
                 )}
-                {detail.owner && (
-                  <div className="text-muted-foreground">
-                    Propriétaire : {detail.owner.fullName ?? detail.owner.email}
-                  </div>
-                )}
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <User className="size-3.5" />
+                  <span>Propriétaire :</span>
+                  <AssigneeSelect
+                    value={detail.ownerId}
+                    className="h-7 w-48"
+                    onChange={(value) => {
+                      setDetail((prev) => (prev ? { ...prev, ownerId: value } : prev));
+                      updateDealOwnerAction(detail.id, value).catch(() => {
+                        setDetail((prev) =>
+                          prev ? { ...prev, ownerId: detail.ownerId } : prev
+                        );
+                      });
+                    }}
+                  />
+                </div>
               </div>
             </SheetHeader>
 

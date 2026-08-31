@@ -1,11 +1,13 @@
+import { getCurrentUserId } from "@/lib/auth";
 import { listCompanyOptions } from "@/lib/queries/companies";
 import { listDealOptions } from "@/lib/queries/deals";
 import { TasksView } from "@/components/tasks/tasks-view";
 
 export default async function TasksPage() {
-  const [companies, deals] = await Promise.all([
+  const [companies, deals, currentUserId] = await Promise.all([
     listCompanyOptions(),
     listDealOptions(),
+    getCurrentUserId(),
   ]);
 
   return (
@@ -17,7 +19,7 @@ export default async function TasksPage() {
         </p>
       </div>
       <div className="min-h-0 flex-1">
-        <TasksView companies={companies} deals={deals} />
+        <TasksView companies={companies} deals={deals} currentUserId={currentUserId} />
       </div>
     </div>
   );

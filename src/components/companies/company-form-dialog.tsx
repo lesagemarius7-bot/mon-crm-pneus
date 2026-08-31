@@ -11,6 +11,7 @@ import { z } from "zod";
 import type { CompanyFormInput } from "@/lib/actions/companies";
 import { createCompanyAction, updateCompanyAction } from "@/lib/actions/companies";
 import { COMPANY_STATUS_LABELS, COMPANY_TYPE_LABELS } from "@/lib/labels";
+import { AssigneeSelect } from "@/components/assignee/assignee-select";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -45,6 +46,7 @@ const companyFormSchema = z.object({
   status: z.string().min(1, "Choisis un statut."),
   fleetSize: numberFieldSchema,
   estimatedRevenue: numberFieldSchema,
+  assignedToId: z.string().nullable(),
 });
 
 type CompanyFormValues = z.infer<typeof companyFormSchema>;
@@ -57,6 +59,7 @@ export type CompanyFormInitialData = {
   status: string;
   fleetSize: number | null;
   estimatedRevenue: number | null;
+  assignedToId?: string | null;
 };
 
 function toFormValues(company?: CompanyFormInitialData): CompanyFormValues {
@@ -67,6 +70,7 @@ function toFormValues(company?: CompanyFormInitialData): CompanyFormValues {
     status: company?.status ?? "PROSPECT",
     fleetSize: company?.fleetSize?.toString() ?? "",
     estimatedRevenue: company?.estimatedRevenue?.toString() ?? "",
+    assignedToId: company?.assignedToId ?? null,
   };
 }
 
@@ -105,6 +109,7 @@ export function CompanyFormDialog({
       fleetSize: values.fleetSize === "" ? null : Number(values.fleetSize),
       estimatedRevenue:
         values.estimatedRevenue === "" ? null : Number(values.estimatedRevenue),
+      assignedToId: values.assignedToId,
     };
 
     try {
@@ -229,6 +234,17 @@ export function CompanyFormDialog({
                 )}
               />
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Propriétaire / Assigné à</Label>
+            <Controller
+              control={form.control}
+              name="assignedToId"
+              render={({ field }) => (
+                <AssigneeSelect value={field.value} onChange={field.onChange} />
+              )}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

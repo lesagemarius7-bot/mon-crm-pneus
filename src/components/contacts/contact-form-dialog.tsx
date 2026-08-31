@@ -12,6 +12,7 @@ import type { CompanyOption } from "@/lib/queries/companies";
 import type { ContactFormInput } from "@/lib/actions/contacts";
 import { createContactAction, updateContactAction } from "@/lib/actions/contacts";
 import { CONTACT_ROLE_LABELS } from "@/lib/labels";
+import { AssigneeSelect } from "@/components/assignee/assignee-select";
 import { CustomFieldsEditor } from "@/components/custom-fields/custom-fields-editor";
 import { EntityTasksSection } from "@/components/tasks/entity-tasks-section";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ const contactFormSchema = z.object({
   phone: z.string().trim(),
   role: z.string().min(1, "Choisis un rôle."),
   companyId: z.string().min(1, "Entreprise requise."),
+  assignedToId: z.string().nullable(),
 });
 
 type ContactFormValues = z.infer<typeof contactFormSchema>;
@@ -57,6 +59,7 @@ export type ContactFormInitialData = {
   phone: string | null;
   role: string;
   companyId: string | null;
+  assignedToId?: string | null;
   customFields?: unknown;
 };
 
@@ -71,6 +74,7 @@ function toFormValues(
     phone: contact?.phone ?? "",
     role: contact?.role ?? "AUTRE",
     companyId: fixedCompanyId ?? contact?.companyId ?? "",
+    assignedToId: contact?.assignedToId ?? null,
   };
 }
 
@@ -123,6 +127,7 @@ export function ContactFormDialog({
       phone: values.phone || null,
       role: values.role as ContactFormInput["role"],
       companyId: fixedCompanyId ?? values.companyId,
+      assignedToId: values.assignedToId,
     };
 
     try {
@@ -287,6 +292,17 @@ export function ContactFormDialog({
                 )}
               />
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Propriétaire / Assigné à</Label>
+            <Controller
+              control={form.control}
+              name="assignedToId"
+              render={({ field }) => (
+                <AssigneeSelect value={field.value} onChange={field.onChange} />
+              )}
+            />
           </div>
 
           <DialogFooter>

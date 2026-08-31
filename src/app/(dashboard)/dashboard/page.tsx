@@ -8,27 +8,40 @@ import {
 } from "lucide-react";
 
 import { getDashboardData } from "@/lib/queries/dashboard";
+import { listProfileOptions } from "@/lib/queries/profiles";
 import { formatCurrency } from "@/lib/labels";
 import { ActivityTrendChart } from "@/components/dashboard/activity-trend-chart";
 import { KpiCard } from "@/components/dashboard/kpi-card";
+import { MemberFilter } from "@/components/dashboard/member-filter";
 import { PipelineByStageChart } from "@/components/dashboard/pipeline-by-stage-chart";
 import { PriorityTasksList } from "@/components/dashboard/priority-tasks-list";
 import { RecentDealsList } from "@/components/dashboard/recent-deals-list";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default async function DashboardPage() {
-  const data = await getDashboardData();
+export default async function DashboardPage({
+  searchParams,
+}: PageProps<"/dashboard">) {
+  const { member } = await searchParams;
+  const selectedMemberId = typeof member === "string" ? member : null;
+
+  const [data, profiles] = await Promise.all([
+    getDashboardData(selectedMemberId ?? undefined),
+    listProfileOptions(),
+  ]);
 
   const conversionLabel =
     data.conversionRate === null ? "—" : `${data.conversionRate.toFixed(0)} %`;
 
   return (
     <div className="flex h-full flex-col">
-      <div className="shrink-0 border-b px-4 py-3">
-        <h1 className="font-semibold">Tableau de bord</h1>
-        <p className="text-sm text-muted-foreground">
-          Vue d&apos;ensemble de l&apos;activité commerciale.
-        </p>
+      <div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
+        <div>
+          <h1 className="font-semibold">Tableau de bord</h1>
+          <p className="text-sm text-muted-foreground">
+            Vue d&apos;ensemble de l&apos;activité commerciale.
+          </p>
+        </div>
+        <MemberFilter profiles={profiles} selectedId={selectedMemberId} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto p-4">

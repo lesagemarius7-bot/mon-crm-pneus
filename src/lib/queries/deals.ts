@@ -16,6 +16,7 @@ export async function listDealsForBoard() {
     include: {
       company: { select: { id: true, name: true } },
       contact: { select: { id: true, firstName: true, lastName: true } },
+      owner: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
     },
   });
 

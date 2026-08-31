@@ -23,7 +23,13 @@ import { TaskKanbanColumn } from "@/components/tasks/task-kanban-column";
 // Module-level so useRealtimeSync always receives a stable array reference.
 const REALTIME_TABLES: RealtimeTable[] = ["tasks"];
 
-export function TaskKanbanBoard({ typeFilter }: { typeFilter?: string }) {
+export function TaskKanbanBoard({
+  typeFilter,
+  assignedToId,
+}: {
+  typeFilter?: string;
+  assignedToId?: string;
+}) {
   const [tasks, setTasks] = useState<TaskRow[] | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -43,22 +49,26 @@ export function TaskKanbanBoard({ typeFilter }: { typeFilter?: string }) {
 
   const refresh = useCallback(() => {
     if (activeIdRef.current) return;
-    listTasksAction({ dueFilter: "ALL", type: typeFilter as TaskRow["type"] | undefined }).then(
-      setTasks
-    );
-  }, [typeFilter]);
+    listTasksAction({
+      dueFilter: "ALL",
+      type: typeFilter as TaskRow["type"] | undefined,
+      assignedToId,
+    }).then(setTasks);
+  }, [typeFilter, assignedToId]);
 
   useEffect(() => {
     let cancelled = false;
-    listTasksAction({ dueFilter: "ALL", type: typeFilter as TaskRow["type"] | undefined }).then(
-      (result) => {
-        if (!cancelled) setTasks(result);
-      }
-    );
+    listTasksAction({
+      dueFilter: "ALL",
+      type: typeFilter as TaskRow["type"] | undefined,
+      assignedToId,
+    }).then((result) => {
+      if (!cancelled) setTasks(result);
+    });
     return () => {
       cancelled = true;
     };
-  }, [typeFilter]);
+  }, [typeFilter, assignedToId]);
 
   useRealtimeSync(REALTIME_TABLES, refresh);
 

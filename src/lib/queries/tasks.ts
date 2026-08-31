@@ -19,6 +19,7 @@ export type TaskFilters = {
   dueFilter?: DueFilter;
   status?: TaskStatus;
   type?: TaskType;
+  assignedToId?: string;
 };
 
 function startOfDay(date: Date): Date {
@@ -71,6 +72,7 @@ export async function listTasks(filters: TaskFilters = {}) {
   if (filters.contactId) where.contactId = filters.contactId;
   if (filters.dealId) where.dealId = filters.dealId;
   if (filters.type) where.type = filters.type;
+  if (filters.assignedToId) where.ownerId = filters.assignedToId;
 
   if (filters.status) {
     where.status = filters.status;
@@ -94,6 +96,7 @@ export async function listTasks(filters: TaskFilters = {}) {
       company: { select: { id: true, name: true } },
       contact: { select: { id: true, firstName: true, lastName: true } },
       deal: { select: { id: true, name: true } },
+      owner: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
     },
   });
 }
