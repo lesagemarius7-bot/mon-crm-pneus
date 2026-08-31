@@ -146,6 +146,11 @@ model Company {
   phone            String?
   website          String?
   linkedin         String?
+  /// Libellé de section NAF (ex: "Transports et entreposage") — renseigné
+  /// via l'enrichissement Sirene à la création (voir src/lib/company-lookup.ts).
+  sector           String?
+  /// Tranche d'effectif salarié INSEE, déjà formatée en libellé (ex: "20 à 49 salariés").
+  employeeRange    String?
   assignedToId     String?       @db.Uuid
   /// Attributs personnalisés (clé = CustomFieldDefinition.key)
   customFields     Json          @default("{}")

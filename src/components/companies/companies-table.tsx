@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Columns3, Download, Search } from "lucide-react";
+import { Columns3, Download, GitMerge, Search } from "lucide-react";
 import {
   flexRender,
   type ColumnFiltersState,
@@ -33,6 +33,7 @@ import { getCompanyColumns } from "@/components/companies/columns";
 import { CreateListFromCompaniesDialog } from "@/components/companies/create-list-from-companies-dialog";
 import { COMPANY_EXPORT_COLUMNS, toCompanyCsvRow } from "@/components/companies/company-csv";
 import { CompanyDetailSheet } from "@/components/companies/company-detail-sheet";
+import { MergeCompaniesDialog } from "@/components/companies/merge-companies-dialog";
 import { Button } from "@/components/ui/button";
 import { ImportCsvDialog, type ImportField } from "@/components/import/import-csv-dialog";
 import {
@@ -305,10 +306,28 @@ export function CompaniesTable({
         onClear={() => setRowSelection({})}
         onConfirmDelete={handleBulkDelete}
         extraActions={
-          <CreateListFromCompaniesDialog
-            companyIds={selectedIds}
-            onDone={() => router.refresh()}
-          />
+          <>
+            {selectedIds.length === 2 && (
+              <MergeCompaniesDialog
+                companyAId={selectedIds[0]}
+                companyBId={selectedIds[1]}
+                trigger={
+                  <Button variant="outline" size="sm">
+                    <GitMerge />
+                    Fusionner
+                  </Button>
+                }
+                onMerged={() => {
+                  setRowSelection({});
+                  router.refresh();
+                }}
+              />
+            )}
+            <CreateListFromCompaniesDialog
+              companyIds={selectedIds}
+              onDone={() => router.refresh()}
+            />
+          </>
         }
       />
     </div>

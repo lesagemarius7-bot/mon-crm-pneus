@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
-  Building2,
   Loader2,
   Mail,
   Maximize2,
@@ -32,6 +32,7 @@ import { QuickLogDialog } from "@/components/activity/quick-log-dialog";
 import { BulkActionsBar } from "@/components/bulk-actions-bar";
 import { CompanyContactsPanel } from "@/components/companies/company-contacts-panel";
 import { CompanyInfoPanel } from "@/components/companies/company-info-panel";
+import { CompanyLogo } from "@/components/companies/company-logo";
 import { EnrollInSequenceDialog } from "@/components/companies/enroll-in-sequence-dialog";
 import { SendEmailDialog } from "@/components/email/send-email-dialog";
 import { EntityTasksSection } from "@/components/tasks/entity-tasks-section";
@@ -73,6 +74,7 @@ export function CompanyDetailSheet({
   // currently-mounted tab content (which self-fetches on mount) re-fetches
   // even if the user never switches tabs away and back.
   const [refreshToken, setRefreshToken] = useState(0);
+  const router = useRouter();
 
   const fetchDetail = useCallback(async (id: string) => {
     const result = await getCompanyDetailAction(id);
@@ -112,6 +114,17 @@ export function CompanyDetailSheet({
   // it — the underlying company itself, or one of its contacts/deals/
   // tasks/activities.
   useRealtimeSync(REALTIME_TABLES, bumpAndRefetch, { enabled: companyId !== null });
+
+  function handleMerged(keptId: string) {
+    if (companyId && keptId !== companyId) {
+      // The currently-open company was the one merged away — it no longer
+      // exists, so close the drawer instead of refetching it.
+      onOpenChange(false);
+    } else {
+      refetch();
+    }
+    router.refresh();
+  }
 
   async function saveCompanyField(patch: Parameters<typeof updateCompanyDetailsAction>[1]) {
     if (!detail) return;
@@ -187,9 +200,7 @@ export function CompanyDetailSheet({
           <>
             <div className="flex shrink-0 flex-col gap-3 border-b p-4 pr-14">
               <div className="flex items-start gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-                  <Building2 className="size-5 text-muted-foreground" />
-                </div>
+                <CompanyLogo website={detail.website} className="size-10" iconClassName="size-5" />
                 <div className="min-w-0 flex-1">
                   <h2 className="truncate text-base font-medium">{detail.name}</h2>
                   <div className="flex flex-wrap items-center gap-1.5 pt-1">
@@ -255,6 +266,7 @@ export function CompanyDetailSheet({
                   onSave={saveCompanyField}
                   onDealStageChanged={applyDealStagePatch}
                   onDealCreated={refetch}
+                  onMerged={handleMerged}
                 />
               </aside>
 

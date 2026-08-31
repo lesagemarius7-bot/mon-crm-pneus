@@ -10,6 +10,8 @@ import type { CompanyDetailsInput } from "@/lib/actions/companies";
 import { COMPANY_STATUS_LABELS, COMPANY_TYPE_LABELS } from "@/lib/labels";
 import { AssigneeSelect } from "@/components/assignee/assignee-select";
 import { CompanyDealsPanel } from "@/components/companies/company-deals-panel";
+import { CompanyLogo } from "@/components/companies/company-logo";
+import { CompanyMergeAlert } from "@/components/companies/company-merge-alert";
 import { CustomFieldsEditor } from "@/components/custom-fields/custom-fields-editor";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -124,11 +126,13 @@ export function CompanyInfoPanel({
   onSave,
   onDealStageChanged,
   onDealCreated,
+  onMerged,
 }: {
   detail: CompanyDetail;
   onSave: (patch: CompanyDetailsInput) => Promise<void>;
   onDealStageChanged: (dealId: string, stage: PipelineStage) => void;
   onDealCreated: () => void;
+  onMerged: (keptId: string) => void;
 }) {
   const [savingField, setSavingField] = useState<string | null>(null);
 
@@ -147,6 +151,14 @@ export function CompanyInfoPanel({
 
   return (
     <div className="flex flex-col gap-4">
+      <CompanyMergeAlert
+        companyId={detail.id}
+        duplicates={detail.potentialDuplicates}
+        onMerged={onMerged}
+      />
+
+      <CompanyLogo website={detail.website} className="size-12" iconClassName="size-5" />
+
       <TextField
         label="Nom de l'entreprise"
         value={detail.name}
@@ -258,6 +270,22 @@ export function CompanyInfoPanel({
         placeholder="41234567800012"
         saving={savingField === "siret"}
         onCommit={(value) => commit("siret", { siret: value || null })}
+      />
+
+      <TextField
+        label="Secteur d'activité"
+        value={detail.sector ?? ""}
+        placeholder="Transports et entreposage"
+        saving={savingField === "sector"}
+        onCommit={(value) => commit("sector", { sector: value || null })}
+      />
+
+      <TextField
+        label="Effectif"
+        value={detail.employeeRange ?? ""}
+        placeholder="20 à 49 salariés"
+        saving={savingField === "employeeRange"}
+        onCommit={(value) => commit("employeeRange", { employeeRange: value || null })}
       />
 
       <Separator />

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpDown, Building2 } from "lucide-react";
+import { ArrowUpDown } from "lucide-react";
 
 import type { CompanyRow } from "@/lib/queries/companies";
 import type { SelectOption } from "@/lib/table-filters";
@@ -14,6 +14,7 @@ import {
   formatDate,
 } from "@/lib/labels";
 import { AssigneeBadge } from "@/components/assignee/assignee-badge";
+import { CompanyLogo } from "@/components/companies/company-logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -90,9 +91,7 @@ export function getCompanyColumns(assigneeOptions: SelectOption[]) {
     filterFn: textFilterFn,
     cell: ({ row }) => (
       <div className="flex items-center gap-2 font-medium">
-        <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted">
-          <Building2 className="size-3.5 text-muted-foreground" />
-        </div>
+        <CompanyLogo website={row.original.website} className="size-6" iconClassName="size-3.5" />
         <span className="truncate">{row.original.name}</span>
       </div>
     ),

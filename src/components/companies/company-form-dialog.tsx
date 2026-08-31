@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactElement } from "react";
 import { useRouter } from "next/navigation";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch, type Control } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import type { CompanyFormInput } from "@/lib/actions/companies";
 import { createCompanyAction, updateCompanyAction } from "@/lib/actions/companies";
 import { COMPANY_STATUS_LABELS, COMPANY_TYPE_LABELS } from "@/lib/labels";
 import { AssigneeSelect } from "@/components/assignee/assignee-select";
+import { CompanySireneSearch } from "@/components/companies/company-sirene-search";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -47,6 +48,12 @@ const companyFormSchema = z.object({
   fleetSize: numberFieldSchema,
   estimatedRevenue: numberFieldSchema,
   assignedToId: z.string().nullable(),
+  address: z.string().nullable(),
+  city: z.string().nullable(),
+  postalCode: z.string().nullable(),
+  sector: z.string().nullable(),
+  employeeRange: z.string().nullable(),
+  linkedin: z.string().nullable(),
 });
 
 type CompanyFormValues = z.infer<typeof companyFormSchema>;
@@ -71,7 +78,50 @@ function toFormValues(company?: CompanyFormInitialData): CompanyFormValues {
     fleetSize: company?.fleetSize?.toString() ?? "",
     estimatedRevenue: company?.estimatedRevenue?.toString() ?? "",
     assignedToId: company?.assignedToId ?? null,
+    address: null,
+    city: null,
+    postalCode: null,
+    sector: null,
+    employeeRange: null,
+    linkedin: null,
   };
+}
+
+/** Read-only recap of the fields pre-filled by CompanySireneSearch —
+ * shown only once a suggestion has been picked (create mode). */
+function CompanyEnrichmentRecap({ control }: { control: Control<CompanyFormValues> }) {
+  const address = useWatch({ control, name: "address" });
+  const city = useWatch({ control, name: "city" });
+  const postalCode = useWatch({ control, name: "postalCode" });
+  const sector = useWatch({ control, name: "sector" });
+  const employeeRange = useWatch({ control, name: "employeeRange" });
+  const linkedin = useWatch({ control, name: "linkedin" });
+
+  const hasAny = address || city || postalCode || sector || employeeRange || linkedin;
+  if (!hasAny) return null;
+
+  const addressLine = [address, postalCode, city].filter(Boolean).join(", ");
+
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border bg-muted/30 p-2.5 text-xs text-muted-foreground">
+      {addressLine && <p>Adresse : {addressLine}</p>}
+      {sector && <p>Secteur d&apos;activité : {sector}</p>}
+      {employeeRange && <p>Effectif : {employeeRange}</p>}
+      {linkedin && (
+        <p>
+          LinkedIn (suggestion) :{" "}
+          <a
+            href={linkedin}
+            target="_blank"
+            rel="noreferrer"
+            className="text-primary hover:underline"
+          >
+            {linkedin}
+          </a>
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function CompanyFormDialog({
@@ -110,6 +160,12 @@ export function CompanyFormDialog({
       estimatedRevenue:
         values.estimatedRevenue === "" ? null : Number(values.estimatedRevenue),
       assignedToId: values.assignedToId,
+      address: values.address,
+      city: values.city,
+      postalCode: values.postalCode,
+      sector: values.sector,
+      employeeRange: values.employeeRange,
+      linkedin: values.linkedin,
     };
 
     try {
@@ -161,6 +217,32 @@ export function CompanyFormDialog({
           onSubmit={form.handleSubmit(onSubmit)}
           className="flex flex-col gap-4"
         >
+          {mode === "create" && (
+            <CompanySireneSearch
+              onPick={(suggestion) => {
+                if (!suggestion) {
+                  form.setValue("address", null);
+                  form.setValue("city", null);
+                  form.setValue("postalCode", null);
+                  form.setValue("sector", null);
+                  form.setValue("employeeRange", null);
+                  form.setValue("linkedin", null);
+                  return;
+                }
+                form.setValue("name", suggestion.name, { shouldValidate: true });
+                if (suggestion.siret) form.setValue("siret", suggestion.siret);
+                form.setValue("address", suggestion.address);
+                form.setValue("city", suggestion.city);
+                form.setValue("postalCode", suggestion.postalCode);
+                form.setValue("sector", suggestion.sector);
+                form.setValue("employeeRange", suggestion.employeeRange);
+                form.setValue("linkedin", suggestion.linkedin);
+              }}
+            />
+          )}
+
+          {mode === "create" && <CompanyEnrichmentRecap control={form.control} />}
+
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="company-name">Nom</Label>
             <Input

@@ -3,17 +3,22 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import type { Prisma } from "@/generated/prisma/client";
 import { CompanyStatus, CompanyType } from "@/generated/prisma/enums";
 import { getCurrentUserId } from "@/lib/auth";
 import { parseOptionalInt, parseOptionalNumber, resolveEnumValue } from "@/lib/csv-import-utils";
 import { COMPANY_STATUS_LABELS, COMPANY_TYPE_LABELS } from "@/lib/labels";
 import { notifyAssignment } from "@/lib/notifications";
 import { getPrisma } from "@/lib/prisma";
-import { getCompanyDetail } from "@/lib/queries/companies";
+import { getCompanyDetail, getCompanyMergeCandidate } from "@/lib/queries/companies";
 import type { ImportResult } from "@/components/import/import-csv-dialog";
 
 export async function getCompanyDetailAction(id: string) {
   return getCompanyDetail(id);
+}
+
+export async function getCompanyMergeCandidateAction(id: string) {
+  return getCompanyMergeCandidate(id);
 }
 
 const companySchema = z.object({
@@ -24,6 +29,15 @@ const companySchema = z.object({
   fleetSize: z.number().int().min(0).nullable().optional(),
   estimatedRevenue: z.number().min(0).nullable().optional(),
   assignedToId: z.string().min(1).nullable().optional(),
+  // Set by the "Nouvelle entreprise" dialog's Sirene enrichment search —
+  // only present when a suggestion was picked, so writes stay conditional
+  // below rather than nulling these out whenever a caller omits them.
+  address: z.string().trim().nullable().optional(),
+  city: z.string().trim().nullable().optional(),
+  postalCode: z.string().trim().nullable().optional(),
+  sector: z.string().trim().nullable().optional(),
+  employeeRange: z.string().trim().nullable().optional(),
+  linkedin: z.string().trim().nullable().optional(),
 });
 
 export type CompanyFormInput = z.infer<typeof companySchema>;
@@ -42,6 +56,12 @@ export async function createCompanyAction(input: CompanyFormInput) {
       fleetSize: parsed.fleetSize ?? null,
       estimatedRevenue: parsed.estimatedRevenue ?? null,
       assignedToId: parsed.assignedToId || null,
+      ...(parsed.address !== undefined ? { address: parsed.address } : {}),
+      ...(parsed.city !== undefined ? { city: parsed.city } : {}),
+      ...(parsed.postalCode !== undefined ? { postalCode: parsed.postalCode } : {}),
+      ...(parsed.sector !== undefined ? { sector: parsed.sector } : {}),
+      ...(parsed.employeeRange !== undefined ? { employeeRange: parsed.employeeRange } : {}),
+      ...(parsed.linkedin !== undefined ? { linkedin: parsed.linkedin } : {}),
     },
   });
 
@@ -98,6 +118,8 @@ const companyDetailsSchema = z.object({
   siret: z.string().trim().nullable().optional(),
   website: z.string().trim().nullable().optional(),
   linkedin: z.string().trim().nullable().optional(),
+  sector: z.string().trim().nullable().optional(),
+  employeeRange: z.string().trim().nullable().optional(),
   assignedToId: z.string().min(1).nullable().optional(),
 });
 
@@ -201,4 +223,103 @@ export async function deleteCompaniesAction(ids: string[]) {
   revalidatePath("/vehicles");
   revalidatePath("/deals");
   return result.count;
+}
+
+const mergeCompaniesSchema = z.object({
+  keepId: z.string().min(1),
+  removeId: z.string().min(1),
+  fields: z.object({
+    name: z.string().trim().min(1, "Le nom est requis."),
+    siret: z.string().trim().nullable(),
+    type: z.enum(CompanyType),
+    status: z.enum(CompanyStatus),
+    address: z.string().trim().nullable(),
+    city: z.string().trim().nullable(),
+    postalCode: z.string().trim().nullable(),
+    sector: z.string().trim().nullable(),
+    employeeRange: z.string().trim().nullable(),
+    fleetSize: z.number().int().min(0).nullable(),
+    estimatedRevenue: z.number().min(0).nullable(),
+    website: z.string().trim().nullable(),
+    linkedin: z.string().trim().nullable(),
+    assignedToId: z.string().nullable(),
+  }),
+});
+
+export type MergeCompaniesInput = z.infer<typeof mergeCompaniesSchema>;
+
+function asPlainObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+/**
+ * Fuses two company records into one: applies the field-by-field choices
+ * onto `keepId`, reassigns every related record (contacts, vehicles,
+ * deals, notes, activities, tasks) from `removeId` to `keepId`, merges
+ * customFields (kept company wins on key conflicts), then deletes
+ * `removeId`. All in one transaction so a failure never leaves an
+ * orphaned or half-merged company behind.
+ */
+export async function mergeCompaniesAction(input: MergeCompaniesInput) {
+  const parsed = mergeCompaniesSchema.parse(input);
+  if (parsed.keepId === parsed.removeId) {
+    throw new Error("Impossible de fusionner une entreprise avec elle-même.");
+  }
+
+  const prisma = getPrisma();
+  const [keep, remove] = await Promise.all([
+    prisma.company.findUniqueOrThrow({ where: { id: parsed.keepId } }),
+    prisma.company.findUniqueOrThrow({ where: { id: parsed.removeId } }),
+  ]);
+
+  const mergedCustomFields = {
+    ...asPlainObject(remove.customFields),
+    ...asPlainObject(keep.customFields),
+  } as Prisma.InputJsonValue;
+
+  // Order matters: reassign every child record off `removeId` first (some
+  // relations, like Vehicle/Deal, cascade-delete with their company), then
+  // delete `removeId`, and only THEN apply the chosen field values to
+  // `keepId` — siret is unique, so writing a siret shared with `removeId`
+  // has to happen after that row is gone, not before.
+  await prisma.$transaction([
+    prisma.contact.updateMany({
+      where: { companyId: parsed.removeId },
+      data: { companyId: parsed.keepId },
+    }),
+    prisma.vehicle.updateMany({
+      where: { companyId: parsed.removeId },
+      data: { companyId: parsed.keepId },
+    }),
+    prisma.deal.updateMany({
+      where: { companyId: parsed.removeId },
+      data: { companyId: parsed.keepId },
+    }),
+    prisma.note.updateMany({
+      where: { companyId: parsed.removeId },
+      data: { companyId: parsed.keepId },
+    }),
+    prisma.activity.updateMany({
+      where: { companyId: parsed.removeId },
+      data: { companyId: parsed.keepId },
+    }),
+    prisma.task.updateMany({
+      where: { companyId: parsed.removeId },
+      data: { companyId: parsed.keepId },
+    }),
+    prisma.company.delete({ where: { id: parsed.removeId } }),
+    prisma.company.update({
+      where: { id: parsed.keepId },
+      data: { ...parsed.fields, customFields: mergedCustomFields },
+    }),
+  ]);
+
+  revalidatePath("/companies");
+  revalidatePath("/contacts");
+  revalidatePath("/vehicles");
+  revalidatePath("/deals");
+  revalidatePath("/tasks");
+  return parsed.keepId;
 }

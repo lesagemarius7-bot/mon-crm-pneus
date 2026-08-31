@@ -31,6 +31,25 @@ export async function listCompanies() {
   }));
 }
 
+/**
+ * Other companies that might be the same real-world business — same name
+ * (case-insensitive) or same SIRET. Powers the "doublon potentiel" alert
+ * on the company detail sheet.
+ */
+export async function findPotentialDuplicates(id: string, name: string, siret: string | null) {
+  const prisma = getPrisma();
+  return prisma.company.findMany({
+    where: {
+      id: { not: id },
+      OR: [{ name: { equals: name, mode: "insensitive" } }, ...(siret ? [{ siret }] : [])],
+    },
+    select: { id: true, name: true, siret: true, city: true },
+    take: 5,
+  });
+}
+
+export type CompanyDuplicateCandidate = Awaited<ReturnType<typeof findPotentialDuplicates>>[number];
+
 export async function getCompanyDetail(id: string) {
   const prisma = getPrisma();
   const company = await prisma.company.findUnique({
@@ -58,6 +77,8 @@ export async function getCompanyDetail(id: string) {
 
   if (!company) return null;
 
+  const potentialDuplicates = await findPotentialDuplicates(company.id, company.name, company.siret);
+
   return {
     ...company,
     estimatedRevenue: company.estimatedRevenue
@@ -67,12 +88,35 @@ export async function getCompanyDetail(id: string) {
       ...deal,
       value: deal.value ? deal.value.toNumber() : null,
     })),
+    potentialDuplicates,
   };
 }
 
 export type CompanyDetail = NonNullable<
   Awaited<ReturnType<typeof getCompanyDetail>>
 >;
+
+/** Lean company record + related-record counts for the merge dialog's
+ * side-by-side comparison. */
+export async function getCompanyMergeCandidate(id: string) {
+  const prisma = getPrisma();
+  const company = await prisma.company.findUniqueOrThrow({
+    where: { id },
+    include: {
+      assignedTo: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
+      _count: {
+        select: { contacts: true, deals: true, tasks: true, activities: true, notes: true, vehicles: true },
+      },
+    },
+  });
+
+  return {
+    ...company,
+    estimatedRevenue: company.estimatedRevenue ? company.estimatedRevenue.toNumber() : null,
+  };
+}
+
+export type CompanyMergeCandidate = Awaited<ReturnType<typeof getCompanyMergeCandidate>>;
 
 /**
  * Lightweight company + contact list for form dropdowns (e.g. the "New
