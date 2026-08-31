@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import type { CompanyRow } from "@/lib/queries/companies";
 import { deleteCompaniesAction, importCompaniesAction } from "@/lib/actions/companies";
 import { downloadCsv } from "@/lib/csv";
+import { useRealtimeSync, type RealtimeTable } from "@/hooks/use-realtime-sync";
 import { BulkActionsBar } from "@/components/bulk-actions-bar";
 import { companyColumns } from "@/components/companies/columns";
 import { COMPANY_EXPORT_COLUMNS, toCompanyCsvRow } from "@/components/companies/company-csv";
@@ -48,6 +49,9 @@ const DEFAULT_HIDDEN_COLUMNS: ColumnVisibilityState = {
   siret: false,
   phone: false,
 };
+
+// Module-level so useRealtimeSync always receives a stable array reference.
+const REALTIME_TABLES: RealtimeTable[] = ["companies"];
 
 const COMPANY_IMPORT_FIELDS: ImportField[] = [
   { key: "name", label: "Nom", required: true },
@@ -93,6 +97,8 @@ export function CompaniesTable({
     () => initialSelectedId ?? null
   );
   const router = useRouter();
+
+  useRealtimeSync(REALTIME_TABLES);
 
   const table = useLegacyTable({
     data,

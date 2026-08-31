@@ -17,6 +17,7 @@ import type { CompanyDetail } from "@/lib/queries/companies";
 import { getCompanyDetailAction, updateCompanyDetailsAction } from "@/lib/actions/companies";
 import { deleteVehiclesAction } from "@/lib/actions/vehicles";
 import { buildTimeline } from "@/lib/activity-timeline";
+import { useRealtimeSync, type RealtimeTable } from "@/hooks/use-realtime-sync";
 import {
   COMPANY_STATUS_BADGE,
   COMPANY_STATUS_LABELS,
@@ -40,6 +41,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+// Module-level so useRealtimeSync always receives a stable array reference.
+const REALTIME_TABLES: RealtimeTable[] = [
+  "companies",
+  "contacts",
+  "deals",
+  "tasks",
+  "activities",
+];
 
 export function CompanyDetailSheet({
   companyId,
@@ -94,6 +104,12 @@ export function CompanyDetailSheet({
     await refetch();
     setRefreshToken((n) => n + 1);
   }
+
+  // Keeps the open company's data (and its currently-mounted tab content,
+  // via refreshToken) live when another user changes something related to
+  // it — the underlying company itself, or one of its contacts/deals/
+  // tasks/activities.
+  useRealtimeSync(REALTIME_TABLES, bumpAndRefetch, { enabled: companyId !== null });
 
   async function saveCompanyField(patch: Parameters<typeof updateCompanyDetailsAction>[1]) {
     if (!detail) return;

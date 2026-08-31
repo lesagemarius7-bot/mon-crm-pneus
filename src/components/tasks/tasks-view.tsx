@@ -9,6 +9,7 @@ import type { CompanyOption } from "@/lib/queries/companies";
 import type { DealOption } from "@/lib/queries/deals";
 import type { DueFilter, TaskRow } from "@/lib/queries/tasks";
 import { listTasksAction, toggleTaskStatusAction } from "@/lib/actions/tasks";
+import { useRealtimeSync, type RealtimeTable } from "@/hooks/use-realtime-sync";
 import {
   TASK_PRIORITY_LABELS,
   TASK_STATUS_LABELS,
@@ -52,6 +53,9 @@ const DUE_FILTERS: { value: DueFilter; label: string }[] = [
 
 const ALL_STATUSES = "all";
 const ALL_TYPES = "all";
+
+// Module-level so useRealtimeSync always receives a stable array reference.
+const REALTIME_TABLES: RealtimeTable[] = ["tasks"];
 
 function dueDateClassName(task: TaskRow): string {
   if (!task.dueDate || task.status === "TERMINEE") return "text-muted-foreground";
@@ -97,6 +101,8 @@ export function TasksView({
       type: typeFilter === ALL_TYPES ? undefined : (typeFilter as TaskRow["type"]),
     }).then(setTasks);
   }
+
+  useRealtimeSync(REALTIME_TABLES, refresh);
 
   async function handleToggle(task: TaskRow, checked: boolean) {
     const nextStatus = checked ? "TERMINEE" : "A_FAIRE";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -15,8 +15,12 @@ import { toast } from "sonner";
 import type { TaskRow } from "@/lib/queries/tasks";
 import { listTasksAction, toggleTaskStatusAction, updateTaskAction } from "@/lib/actions/tasks";
 import { getBucketDropPayload, getTaskBucket, TASK_BUCKETS, type TaskBucket } from "@/lib/task-buckets";
+import { useRealtimeSync, type RealtimeTable } from "@/hooks/use-realtime-sync";
 import { TaskKanbanCard } from "@/components/tasks/task-kanban-card";
 import { TaskKanbanColumn } from "@/components/tasks/task-kanban-column";
+
+// Module-level so useRealtimeSync always receives a stable array reference.
+const REALTIME_TABLES: RealtimeTable[] = ["tasks"];
 
 export function TaskKanbanBoard({ typeFilter }: { typeFilter?: string }) {
   const [tasks, setTasks] = useState<TaskRow[] | null>(null);
@@ -25,6 +29,12 @@ export function TaskKanbanBoard({ typeFilter }: { typeFilter?: string }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
   );
+
+  const refresh = useCallback(() => {
+    listTasksAction({ dueFilter: "ALL", type: typeFilter as TaskRow["type"] | undefined }).then(
+      setTasks
+    );
+  }, [typeFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,6 +47,8 @@ export function TaskKanbanBoard({ typeFilter }: { typeFilter?: string }) {
       cancelled = true;
     };
   }, [typeFilter]);
+
+  useRealtimeSync(REALTIME_TABLES, refresh);
 
   const tasksByBucket = useMemo(() => {
     const map = new Map<TaskBucket, TaskRow[]>(

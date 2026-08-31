@@ -17,11 +17,15 @@ import type { PipelineStage } from "@/generated/prisma/client";
 import type { CompanyOption } from "@/lib/queries/companies";
 import type { BoardDeal } from "@/lib/queries/deals";
 import { moveDealStageAction } from "@/lib/actions/deals";
+import { useRealtimeSync, type RealtimeTable } from "@/hooks/use-realtime-sync";
 import { Button } from "@/components/ui/button";
 import { DealCard } from "@/components/deals/deal-card";
 import { DealDetailSheet } from "@/components/deals/deal-detail-sheet";
 import { KanbanColumn } from "@/components/deals/kanban-column";
 import { NewDealDialog } from "@/components/deals/new-deal-dialog";
+
+// Module-level so useRealtimeSync always receives a stable array reference.
+const REALTIME_TABLES: RealtimeTable[] = ["deals", "companies", "contacts"];
 
 export function KanbanBoard({
   stages,
@@ -33,12 +37,26 @@ export function KanbanBoard({
   companies: CompanyOption[];
 }) {
   const [deals, setDeals] = useState(initialDeals);
+  // router.refresh() (useRealtimeSync's default onChange) re-fetches the
+  // Server Component and passes a new `initialDeals` prop down — resync
+  // local state to it so other users' drag-and-drop shows up here too.
+  // Adjusting state during render (React's documented pattern for this,
+  // see "Adjusting state when a prop changes") instead of in an effect —
+  // bails out before committing, so it's not an extra render.
+  const [prevInitialDeals, setPrevInitialDeals] = useState(initialDeals);
+  if (initialDeals !== prevInitialDeals) {
+    setPrevInitialDeals(initialDeals);
+    setDeals(initialDeals);
+  }
+
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
   const [newDealDialog, setNewDealDialog] = useState<{
     open: boolean;
     stageId?: string;
   }>({ open: false });
+
+  useRealtimeSync(REALTIME_TABLES);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
