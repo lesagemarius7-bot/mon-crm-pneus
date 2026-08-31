@@ -457,18 +457,29 @@ model Sequence {
 /// fires — so "send template X, wait 3 days, then task Y" is two steps:
 /// {order: 1, delayDays: 0, action: SEND_EMAIL}, {order: 2, delayDays: 3,
 /// action: CREATE_TASK}.
+enum SequenceStepEmailSource {
+  TEMPLATE
+  CUSTOM
+}
+
 model SequenceStep {
-  id          String             @id @default(uuid()) @db.Uuid
-  sequenceId  String             @db.Uuid
-  order       Int
-  delayDays   Int                @default(0)
-  action      SequenceStepAction
-  templateId  String?            @db.Uuid
-  taskSubject String?
-  taskType    TaskType?
-  taskReason  String?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id           String                  @id @default(uuid()) @db.Uuid
+  sequenceId   String                  @db.Uuid
+  order        Int
+  delayDays    Int                     @default(0)
+  action       SequenceStepAction
+  /// Only meaningful when action = SEND_EMAIL: TEMPLATE uses `templateId`,
+  /// CUSTOM sends `emailSubject`/`emailBody` directly (still supports
+  /// {{variable}} substitution — see src/lib/template-render.ts).
+  emailSource  SequenceStepEmailSource @default(TEMPLATE)
+  templateId   String?                 @db.Uuid
+  emailSubject String?
+  emailBody    String?
+  taskSubject  String?
+  taskType     TaskType?
+  taskReason   String?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
 
   sequence Sequence       @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
   template EmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)

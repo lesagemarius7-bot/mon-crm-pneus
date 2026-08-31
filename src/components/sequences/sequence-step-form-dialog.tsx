@@ -9,8 +9,10 @@ import { z } from "zod";
 
 import type { TaskType } from "@/generated/prisma/enums";
 import type { EmailTemplateOption } from "@/lib/queries/email-templates";
+import { listEmailTemplateOptionsAction } from "@/lib/actions/email-templates";
 import { createSequenceStepAction, updateSequenceStepAction } from "@/lib/actions/sequences";
 import { TASK_TYPE_LABELS } from "@/lib/labels";
+import { AVAILABLE_TEMPLATE_VARIABLES } from "@/lib/template-render";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,10 +33,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { TemplateFormDialog } from "@/components/templates/template-form-dialog";
 
 const ACTIONS = [
-  { value: "SEND_EMAIL", label: "Envoyer un template" },
+  { value: "SEND_EMAIL", label: "Envoyer un email" },
   { value: "CREATE_TASK", label: "Créer une tâche" },
+] as const;
+
+const EMAIL_SOURCES = [
+  { value: "TEMPLATE", label: "Utiliser un template existant" },
+  { value: "CUSTOM", label: "Écrire un email personnalisé" },
 ] as const;
 
 const NO_TEMPLATE = "none";
@@ -44,7 +52,10 @@ const stepFormSchema = z.object({
     .string()
     .refine((v) => v !== "" && !Number.isNaN(Number(v)) && Number(v) >= 0, "Nombre de jours invalide."),
   action: z.enum(["SEND_EMAIL", "CREATE_TASK"]),
+  emailSource: z.enum(["TEMPLATE", "CUSTOM"]),
   templateId: z.string(),
+  emailSubject: z.string().trim(),
+  emailBody: z.string().trim(),
   taskSubject: z.string().trim(),
   taskType: z.string(),
   taskReason: z.string().trim(),
@@ -57,7 +68,10 @@ export type SequenceStepFormInitialData = {
   order: number;
   delayDays: number;
   action: "SEND_EMAIL" | "CREATE_TASK";
+  emailSource: "TEMPLATE" | "CUSTOM";
   templateId: string | null;
+  emailSubject: string | null;
+  emailBody: string | null;
   taskSubject: string | null;
   taskType: string | null;
   taskReason: string | null;
@@ -67,7 +81,10 @@ function toFormValues(step?: SequenceStepFormInitialData): StepFormValues {
   return {
     delayDays: step ? String(step.delayDays) : "0",
     action: step?.action ?? "SEND_EMAIL",
+    emailSource: step?.emailSource ?? "TEMPLATE",
     templateId: step?.templateId ?? "",
+    emailSubject: step?.emailSubject ?? "",
+    emailBody: step?.emailBody ?? "",
     taskSubject: step?.taskSubject ?? "",
     taskType: step?.taskType ?? "RELANCE_EMAIL",
     taskReason: step?.taskReason ?? "",
@@ -79,7 +96,6 @@ export function SequenceStepFormDialog({
   sequenceId,
   nextOrder,
   step,
-  templates,
   trigger,
   onSaved,
 }: {
@@ -88,12 +104,12 @@ export function SequenceStepFormDialog({
   /** Order assigned to a new step — ignored in edit mode. */
   nextOrder?: number;
   step?: SequenceStepFormInitialData;
-  templates: EmailTemplateOption[];
   trigger?: ReactElement;
   onSaved?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [templates, setTemplates] = useState<EmailTemplateOption[]>([]);
 
   const form = useForm<StepFormValues>({
     resolver: zodResolver(stepFormSchema),
@@ -101,11 +117,28 @@ export function SequenceStepFormDialog({
   });
 
   useEffect(() => {
-    if (open) form.reset(toFormValues(step));
+    if (open) {
+      form.reset(toFormValues(step));
+      listEmailTemplateOptionsAction().then(setTemplates);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const action = useWatch({ control: form.control, name: "action" });
+  const emailSource = useWatch({ control: form.control, name: "emailSource" });
+
+  function refreshTemplates() {
+    listEmailTemplateOptionsAction().then(setTemplates);
+  }
+
+  function insertVariable(token: string) {
+    const current = form.getValues("emailBody");
+    form.setValue(
+      "emailBody",
+      `${current}${current && !current.endsWith(" ") ? " " : ""}{{${token}}}`,
+      { shouldDirty: true }
+    );
+  }
 
   async function onSubmit(values: StepFormValues) {
     setSubmitting(true);
@@ -115,7 +148,10 @@ export function SequenceStepFormDialog({
         order: mode === "create" ? (nextOrder ?? 1) : step!.order,
         delayDays: Number(values.delayDays),
         action: values.action,
+        emailSource: values.emailSource,
         templateId: values.templateId === NO_TEMPLATE ? null : values.templateId || null,
+        emailSubject: values.emailSubject || null,
+        emailBody: values.emailBody || null,
         taskSubject: values.taskSubject || null,
         taskType: (values.taskType || null) as TaskType | null,
         taskReason: values.taskReason || null,
@@ -154,7 +190,7 @@ export function SequenceStepFormDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={trigger ?? defaultTrigger} />
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? "Nouvelle étape" : "Modifier l'étape"}</DialogTitle>
           <DialogDescription>
@@ -198,31 +234,114 @@ export function SequenceStepFormDialog({
           </div>
 
           {action === "SEND_EMAIL" ? (
-            <div className="flex flex-col gap-1.5">
-              <Label>Template</Label>
-              <Controller
-                control={form.control}
-                name="templateId"
-                render={({ field }) => (
-                  <Select
-                    value={field.value || NO_TEMPLATE}
-                    onValueChange={(value) => field.onChange(value ?? NO_TEMPLATE)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choisir un template..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NO_TEMPLATE}>Aucun</SelectItem>
-                      {templates.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {t.title}
-                        </SelectItem>
+            <>
+              <div className="flex flex-col gap-1.5">
+                <Label>Contenu de l&apos;email</Label>
+                <Controller
+                  control={form.control}
+                  name="emailSource"
+                  render={({ field }) => (
+                    <Select
+                      value={field.value || null}
+                      onValueChange={(value) =>
+                        field.onChange((value as StepFormValues["emailSource"]) ?? "TEMPLATE")
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {EMAIL_SOURCES.map((s) => (
+                          <SelectItem key={s.value} value={s.value}>
+                            {s.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+
+              {emailSource === "TEMPLATE" ? (
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label>Template</Label>
+                    <TemplateFormDialog
+                      mode="create"
+                      onSaved={(id) => {
+                        refreshTemplates();
+                        form.setValue("templateId", id, { shouldDirty: true });
+                      }}
+                      trigger={
+                        <button
+                          type="button"
+                          className="text-xs text-primary hover:underline"
+                        >
+                          + Créer un nouveau template
+                        </button>
+                      }
+                    />
+                  </div>
+                  <Controller
+                    control={form.control}
+                    name="templateId"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value || NO_TEMPLATE}
+                        onValueChange={(value) => field.onChange(value ?? NO_TEMPLATE)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choisir un template..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NO_TEMPLATE}>Aucun</SelectItem>
+                          {templates.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="step-email-subject">Objet de l&apos;email</Label>
+                    <Input
+                      id="step-email-subject"
+                      placeholder="Suivi de votre demande {{company.name}}"
+                      {...form.register("emailSubject")}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="step-email-body">Message</Label>
+                    <Textarea
+                      id="step-email-body"
+                      rows={5}
+                      placeholder="Bonjour {{contact.firstName}},"
+                      {...form.register("emailBody")}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-xs text-muted-foreground">Insérer une variable</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {AVAILABLE_TEMPLATE_VARIABLES.map((token) => (
+                        <button
+                          key={token}
+                          type="button"
+                          onClick={() => insertVariable(token)}
+                          className="rounded-md border border-dashed px-1.5 py-0.5 font-mono text-xs text-muted-foreground hover:border-primary hover:text-primary"
+                        >
+                          {`{{${token}}}`}
+                        </button>
                       ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
           ) : (
             <>
               <div className="flex flex-col gap-1.5">

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { SequenceStepAction, TaskType } from "@/generated/prisma/enums";
+import { SequenceStepAction, SequenceStepEmailSource, TaskType } from "@/generated/prisma/enums";
 import { getCurrentUserId } from "@/lib/auth";
 import { getPrisma } from "@/lib/prisma";
 import { getSequenceDetail, listSequenceOptions } from "@/lib/queries/sequences";
@@ -70,7 +70,10 @@ const stepSchema = z.object({
   order: z.number().int().min(1),
   delayDays: z.number().int().min(0),
   action: z.enum(SequenceStepAction),
+  emailSource: z.enum(SequenceStepEmailSource).optional(),
   templateId: z.string().min(1).nullable().optional(),
+  emailSubject: z.string().trim().nullable().optional(),
+  emailBody: z.string().trim().nullable().optional(),
   taskSubject: z.string().trim().nullable().optional(),
   taskType: z.enum(TaskType).nullable().optional(),
   taskReason: z.string().trim().nullable().optional(),
@@ -78,21 +81,28 @@ const stepSchema = z.object({
 
 export type SequenceStepInput = z.infer<typeof stepSchema>;
 
+function toStepData(parsed: SequenceStepInput) {
+  const isCustomEmail = parsed.action === "SEND_EMAIL" && parsed.emailSource === "CUSTOM";
+  return {
+    order: parsed.order,
+    delayDays: parsed.delayDays,
+    action: parsed.action,
+    emailSource: parsed.action === "SEND_EMAIL" ? (parsed.emailSource ?? "TEMPLATE") : "TEMPLATE",
+    templateId: parsed.action === "SEND_EMAIL" && !isCustomEmail ? parsed.templateId || null : null,
+    emailSubject: isCustomEmail ? parsed.emailSubject || null : null,
+    emailBody: isCustomEmail ? parsed.emailBody || null : null,
+    taskSubject: parsed.action === "CREATE_TASK" ? parsed.taskSubject || null : null,
+    taskType: parsed.action === "CREATE_TASK" ? (parsed.taskType ?? null) : null,
+    taskReason: parsed.action === "CREATE_TASK" ? parsed.taskReason || null : null,
+  } as const;
+}
+
 export async function createSequenceStepAction(input: SequenceStepInput) {
   const parsed = stepSchema.parse(input);
   const prisma = getPrisma();
 
   const step = await prisma.sequenceStep.create({
-    data: {
-      sequenceId: parsed.sequenceId,
-      order: parsed.order,
-      delayDays: parsed.delayDays,
-      action: parsed.action,
-      templateId: parsed.action === "SEND_EMAIL" ? parsed.templateId || null : null,
-      taskSubject: parsed.action === "CREATE_TASK" ? parsed.taskSubject || null : null,
-      taskType: parsed.action === "CREATE_TASK" ? (parsed.taskType ?? null) : null,
-      taskReason: parsed.action === "CREATE_TASK" ? parsed.taskReason || null : null,
-    },
+    data: { sequenceId: parsed.sequenceId, ...toStepData(parsed) },
   });
 
   revalidatePath("/sequences");
@@ -105,15 +115,7 @@ export async function updateSequenceStepAction(id: string, input: SequenceStepIn
 
   await prisma.sequenceStep.update({
     where: { id },
-    data: {
-      order: parsed.order,
-      delayDays: parsed.delayDays,
-      action: parsed.action,
-      templateId: parsed.action === "SEND_EMAIL" ? parsed.templateId || null : null,
-      taskSubject: parsed.action === "CREATE_TASK" ? parsed.taskSubject || null : null,
-      taskType: parsed.action === "CREATE_TASK" ? (parsed.taskType ?? null) : null,
-      taskReason: parsed.action === "CREATE_TASK" ? parsed.taskReason || null : null,
-    },
+    data: toStepData(parsed),
   });
 
   revalidatePath("/sequences");
@@ -229,7 +231,21 @@ export async function processDueSequenceStepsAction(): Promise<{ processed: numb
         company: enrollment.contact.company,
       };
 
-      if (currentStep.action === "SEND_EMAIL" && currentStep.templateId) {
+      if (currentStep.action === "SEND_EMAIL" && currentStep.emailSource === "CUSTOM") {
+        if (currentStep.emailSubject || currentStep.emailBody) {
+          await prisma.activity.create({
+            data: {
+              type: "EMAIL",
+              subject: renderTemplate(currentStep.emailSubject || "", context),
+              description: renderTemplate(currentStep.emailBody || "", context),
+              contactId: enrollment.contactId,
+              companyId: enrollment.contact.companyId,
+              ownerId: ownerId ?? undefined,
+              completedAt: now,
+            },
+          });
+        }
+      } else if (currentStep.action === "SEND_EMAIL" && currentStep.templateId) {
         const template = await prisma.emailTemplate.findUnique({
           where: { id: currentStep.templateId },
         });

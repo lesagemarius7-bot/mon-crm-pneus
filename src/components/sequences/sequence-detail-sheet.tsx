@@ -4,9 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Loader2, Mail, PlayCircle, Trash2, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 
-import type { EmailTemplateOption } from "@/lib/queries/email-templates";
 import type { SequenceDetail } from "@/lib/queries/sequences";
-import { listEmailTemplateOptionsAction } from "@/lib/actions/email-templates";
 import {
   deleteSequenceStepAction,
   getSequenceDetailAction,
@@ -42,7 +40,6 @@ export function SequenceDetailSheet({
 }) {
   const [detail, setDetail] = useState<SequenceDetail | null>(null);
   const [loadedForId, setLoadedForId] = useState<string | null>(null);
-  const [templates, setTemplates] = useState<EmailTemplateOption[]>([]);
   const [running, setRunning] = useState(false);
 
   const refetch = useCallback(() => {
@@ -56,15 +53,12 @@ export function SequenceDetailSheet({
   useEffect(() => {
     if (!sequenceId) return;
     let cancelled = false;
-    Promise.all([getSequenceDetailAction(sequenceId), listEmailTemplateOptionsAction()]).then(
-      ([result, templateOptions]) => {
-        if (!cancelled) {
-          setDetail(result);
-          setLoadedForId(sequenceId);
-          setTemplates(templateOptions);
-        }
+    getSequenceDetailAction(sequenceId).then((result) => {
+      if (!cancelled) {
+        setDetail(result);
+        setLoadedForId(sequenceId);
       }
-    );
+    });
     return () => {
       cancelled = true;
     };
@@ -149,7 +143,6 @@ export function SequenceDetailSheet({
                     mode="create"
                     sequenceId={detail.id}
                     nextOrder={(detail.steps.at(-1)?.order ?? 0) + 1}
-                    templates={templates}
                     onSaved={refetch}
                   />
                 </div>
@@ -172,7 +165,11 @@ export function SequenceDetailSheet({
                             {step.action === "SEND_EMAIL" && (
                               <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                                 <Mail className="size-3.5" />
-                                {step.template?.title ?? "Aucun template sélectionné"}
+                                {step.emailSource === "CUSTOM"
+                                  ? (step.emailSubject
+                                      ? `Email personnalisé — « ${step.emailSubject} »`
+                                      : "Email personnalisé (sans objet)")
+                                  : (step.template?.title ?? "Aucun template sélectionné")}
                               </p>
                             )}
                             {step.action === "CREATE_TASK" && (
@@ -187,7 +184,6 @@ export function SequenceDetailSheet({
                               mode="edit"
                               sequenceId={detail.id}
                               step={step}
-                              templates={templates}
                               onSaved={refetch}
                             />
                             <Button
