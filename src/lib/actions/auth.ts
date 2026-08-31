@@ -49,20 +49,27 @@ export async function signOutAction() {
   await supabase.auth.signOut();
 }
 
+/** Set DEMO_MODE=true (e.g. on a Vercel preview/demo deployment) to allow
+ * devSignInAction to run outside local development — see below. */
+function isDevSignInAllowed() {
+  return process.env.NODE_ENV === "development" || process.env.DEMO_MODE === "true";
+}
+
 /**
- * Dev-only instant sign-in: provisions (or reuses) a local dev user via the
- * Supabase Admin API and establishes a REAL session server-side, without
- * sending or waiting on an email. proxy.ts is untouched — this doesn't
- * bypass auth, it just automates getting a genuine session in development.
+ * Dev/demo instant sign-in: provisions (or reuses) a dedicated demo user via
+ * the Supabase Admin API and establishes a REAL session server-side,
+ * without sending or waiting on an email. proxy.ts is untouched — this
+ * doesn't bypass auth, it just automates getting a genuine session.
  *
- * Double-gated: only rendered from the login page when NODE_ENV is
- * "development" (see DevLoginButton), and refuses to run here too, so it
- * can never fire against a production deployment even if the button were
- * somehow reached.
+ * Double-gated: only rendered from the login page when isDevSignInAllowed()
+ * is true (see DevLoginButton), and refuses to run here too, so it can
+ * never fire against a plain production deployment even if the button were
+ * somehow reached — it takes an explicit DEMO_MODE=true opt-in to unlock
+ * outside local dev.
  */
 export async function devSignInAction() {
-  if (process.env.NODE_ENV !== "development") {
-    throw new Error("devSignInAction is only available in development.");
+  if (!isDevSignInAllowed()) {
+    throw new Error("devSignInAction is only available in development or demo mode.");
   }
 
   const admin = createAdminClient();
